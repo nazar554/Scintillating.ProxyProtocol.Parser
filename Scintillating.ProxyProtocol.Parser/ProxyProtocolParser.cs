@@ -7,6 +7,9 @@ using System.Runtime.InteropServices;
 
 namespace Scintillating.ProxyProtocol.Parser;
 
+/// <summary>
+/// PROXY Protocol header parser, supports partial headers, is re-usable.
+/// </summary>
 [StructLayout(LayoutKind.Auto)]
 public struct ProxyProtocolParser
 {
@@ -24,8 +27,16 @@ public struct ProxyProtocolParser
     private int _proxyAddrLength;
     private int _bytesFilled;
 
+    /// <summary>
+    /// Attempt to parse available data to internal parser state.
+    /// </summary>
+    /// <param name="sequence">Data to parse (can be partial).</param>
+    /// <param name="advanceTo">Part of the sequence that was consumed/examined.</param>
+    /// <param name="proxyProtocolHeader">The result if parsing succeeded.</param>
+    /// <returns>true when parsing succeeded and finished, otherwise false.</returns>
+    /// <exception cref="ProxyProtocolException"><paramref name="sequence"/> contains invalid data.</exception>
     public bool TryParse(ReadOnlySequence<byte> sequence,
-        out (SequencePosition consumed, SequencePosition examined) advanceTo,
+        out ProxyProtocolAdvanceTo advanceTo,
         [MaybeNullWhen(returnValue: false)] out ProxyProtocolHeader proxyProtocolHeader)
     {
         var sequenceReader = new SequenceReader<byte>(sequence);
@@ -56,7 +67,7 @@ public struct ProxyProtocolParser
 
         proxyProtocolHeader = value;
         var consumed = sequenceReader.Position;
-        advanceTo = (consumed, examined ?? consumed);
+        advanceTo = new ProxyProtocolAdvanceTo(consumed, examined ?? consumed);
         return success;
     }
 
@@ -271,9 +282,11 @@ public struct ProxyProtocolParser
         return false;
     }
 
-    private unsafe bool TryConsumeTypeLengthValueV2(ref SequenceReader<byte> sequenceReader, ref ProxyProtocolHeader proxyProtocolHeader)
+    private unsafe static bool TryConsumeTypeLengthValueV2(ref SequenceReader<byte> sequenceReader, ref ProxyProtocolHeader proxyProtocolHeader)
     {
         ParserThrowHelper.ThrowNotImplemented("PROXY V2: Reading TLVs not yet implemented.");
+        _ = sequenceReader;
+        _ = proxyProtocolHeader;
         return false;
     }
 
@@ -390,6 +403,9 @@ public struct ProxyProtocolParser
         );
     }
 
+    /// <summary>
+    /// Resets the parser to initial state.
+    /// </summary>
     public void Reset()
     {
         this = default;
