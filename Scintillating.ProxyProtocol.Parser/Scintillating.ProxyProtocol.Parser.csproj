@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <EnablePackageValidation>true</EnablePackageValidation>
     <IncludeSymbols>true</IncludeSymbols>
@@ -25,6 +26,7 @@
     <PackageReleaseNotes>https://github.com/nazar554/Scintillating.ProxyProtocol.Parser/releases</PackageReleaseNotes>
     <RepositoryType>GitHub</RepositoryType>
     <RepositoryBranch>release/0.1</RepositoryBranch>
+    <RepositoryCommit>432ffc6712ea6019b393b6e9730cf89ddb6b6af1</RepositoryCommit>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Copyright>Copyright © 2022 Nazar Mishturak</Copyright>
     <Description>.NET parser for HAProxy PROXY protocol (V1 and V2)</Description>
