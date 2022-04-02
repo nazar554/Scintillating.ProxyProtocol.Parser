@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.1.32228.430
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scintillating.ProxyProtocol.Parser", "Scintillating.ProxyProtocol.Parser\Scintillating.ProxyProtocol.Parser.csproj", "{4FCC369D-ACC0-4E15-9529-C23541E7CA09}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Scintillating.ProxyProtocol.Parser", "Scintillating.ProxyProtocol.Parser\Scintillating.ProxyProtocol.Parser.csproj", "{4FCC369D-ACC0-4E15-9529-C23541E7CA09}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{0BCC715C-2466-40D1-994E-A0A9603CE923}"
 	ProjectSection(SolutionItems) = preProject
@@ -12,6 +12,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Directory.Build.props = Directory.Build.props
 		global.json = global.json
 		README.md = README.md
+		version.json = version.json
 	EndProjectSection
 EndProject
 Global

@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -24,7 +23,7 @@
     <RepositoryUrl>https://github.com/nazar554/Scintillating.ProxyProtocol.Parser</RepositoryUrl>
     <PackageReleaseNotes>https://github.com/nazar554/Scintillating.ProxyProtocol.Parser/releases</PackageReleaseNotes>
     <RepositoryType>GitHub</RepositoryType>
-    <RepositoryBranch>release/$(MajorMinorVersion)</RepositoryBranch>
+    <RepositoryBranch>$(_RepositoryBranch)</RepositoryBranch>
     <RepositoryCommit>$(GitCommitId)</RepositoryCommit>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Copyright>Copyright © 2022 Nazar Mishturak</Copyright>
