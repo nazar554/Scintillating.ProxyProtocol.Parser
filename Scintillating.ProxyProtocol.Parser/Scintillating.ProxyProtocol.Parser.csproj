@@ -4,6 +4,38 @@
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <IsPackable>true</IsPackable>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <IncludeSymbols>true</IncludeSymbols>
+    <DebugType>portable</DebugType>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Deterministic>true</Deterministic>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    
+    <PackageId>Scintillating.ProxyProtocol.Parser</PackageId>
+    <PackageTags>parser proxy protocol connection address transport</PackageTags>
+    <Version>0.1.0</Version>
+    <Authors>Nazar Mishturak</Authors>
+    <Company />
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageProjectUrl>https://github.com/nazar554/Scintillating.ProxyProtocol.Parser</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/nazar554/Scintillating.ProxyProtocol.Parser</RepositoryUrl>
+    <PackageReleaseNotes>https://github.com/nazar554/Scintillating.ProxyProtocol.Parser/releases</PackageReleaseNotes>
+    <RepositoryType>GitHub</RepositoryType>
+    <RepositoryBranch>release/0.1</RepositoryBranch>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright © 2022 Nazar Mishturak</Copyright>
+    <Description>.NET parser for HAProxy PROXY protocol (V1 and V2)</Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
 </Project>
