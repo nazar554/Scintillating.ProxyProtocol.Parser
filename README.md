@@ -1,6 +1,6 @@
 # Scintillating.ProxyProtocol.Parser
 
-![Nuget](https://img.shields.io/nuget/v/Scintillating.ProxyProtocol.Parser)
+[![Nuget](https://img.shields.io/nuget/v/Scintillating.ProxyProtocol.Parser?label=NuGet&logo=nuget)](https://www.nuget.org/packages/Scintillating.ProxyProtocol.Parser/)
 
 **Scintillating.ProxyProtocol.Parser** is a .NET library for parsing [PROXY protocol](https://www.haproxy.org/download/2.6/doc/proxy-protocol.txt) headers.
 
