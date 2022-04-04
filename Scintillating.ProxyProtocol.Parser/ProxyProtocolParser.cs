@@ -81,30 +81,33 @@ public struct ProxyProtocolParser
         Debug.Assert(_bytesFilled == 0, nameof(_bytesFilled) + " is non zero.");
         Debug.Assert(_v2HeaderLengthWithoutTlv == 0, nameof(_v2HeaderLengthWithoutTlv) + " is non zero.");
 
-        bool isEnoughBytesRemainingForV2 = remainingBytes >= len_v2;
-        if (isEnoughBytesRemainingForV2 && sequenceReader.IsNext(ParserConstants.SigV2, advancePast: true))
+
+        var sig_v1 = ParserConstants.PreambleV1;
+        var sig_v2 = ParserConstants.SigV2;
+
+        bool startsWithV1 = ParserUtility.StartsWith(ref sequenceReader, sig_v1);
+        bool startsWithV2 = !startsWithV1 && ParserUtility.StartsWith(ref sequenceReader, sig_v2);
+
+        if (startsWithV2 && remainingBytes >= len_v2)
         {
+            sequenceReader.Advance(hdr_v2.sig_len);
             return TryConsumeInitialV2(ref sequenceReader, ref proxyProtocolHeader);
         }
-
-        if (remainingBytes >= len_v1)
+        if (startsWithV1 && remainingBytes >= len_v1)
         {
-            var preambleV1 = ParserConstants.PreambleV1;
-            if (sequenceReader.IsNext(preambleV1, advancePast: true))
-            {
-                var sig_v1 = MemoryMarshal.CreateSpan(ref _raw_hdr.v1.line[0], ParserConstants.PreambleV1Length);
-                preambleV1.CopyTo(sig_v1);
+            sequenceReader.Advance(ParserConstants.PreambleV1Length);
+            var preambleV1 = MemoryMarshal.CreateSpan(ref _raw_hdr.v1.line[0], ParserConstants.PreambleV1Length);
+            sig_v1.CopyTo(preambleV1);
 
-                _bytesFilled = ParserConstants.PreambleV1Length;
+            _bytesFilled = ParserConstants.PreambleV1Length;
 
-                _step = ParserStep.PreambleV1;
-                return TryConsumePreambleV1(ref sequenceReader, ref proxyProtocolHeader);
-            }
+            _step = ParserStep.PreambleV1;
+            return TryConsumePreambleV1(ref sequenceReader, ref proxyProtocolHeader);
+        }
 
-            if (isEnoughBytesRemainingForV2 || !ParserUtility.StartsWith(ref sequenceReader, ParserConstants.SigV2))
-            {
-                ParserThrowHelper.ThrowInvalidProtocol();
-            }
+        if (!startsWithV1 && !startsWithV2)
+        {
+            ParserThrowHelper.ThrowInvalidProtocol();
         }
 
         SequenceReader<byte> copy = sequenceReader;
