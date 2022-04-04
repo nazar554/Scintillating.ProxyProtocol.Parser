@@ -20,10 +20,10 @@ public struct ProxyProtocolParser
     private const AddressFamily AF_UNSPEC = AddressFamily.Unspecified;
 
     // sizeof(raw.hdr_v2.sig) + sizeof(ver_cmd) + sizeof(fam) + sizeof(len) = 16
-    private const int len_v2 = hdr_v2.sig_len + sizeof(byte) + sizeof(byte) + sizeof(short);
+    internal const int len_v2 = hdr_v2.sig_len + sizeof(byte) + sizeof(byte) + sizeof(short);
 
     // "PROXY \r\n".Length = sizeof("PROXY") + sizeof((byte)' ') + sizeof("\r\n") = 8
-    private const int len_v1 = ParserConstants.PreambleV1Length + ParserConstants.DelimiterV1Length + sizeof(byte);
+    internal const int len_v1 = ParserConstants.PreambleV1Length + ParserConstants.DelimiterV1Length + sizeof(byte);
 
     private ushort _v2HeaderLengthWithoutTlv;
     private ushort _bytesFilled;
@@ -62,9 +62,14 @@ public struct ProxyProtocolParser
                 _ => ThrowUnknownParserStep(step),
             };
         }
-        catch when (step != ParserStep.Done && step != ParserStep.Invalid)
+        catch
         {
-            _step = ParserStep.Invalid;
+            if (step != ParserStep.Done && step != ParserStep.Invalid)
+            {
+                _step = ParserStep.Invalid;
+            }
+            proxyProtocolHeader = null!;
+            advanceTo = default;
             throw;
         }
 
@@ -85,16 +90,22 @@ public struct ProxyProtocolParser
         var sig_v1 = ParserConstants.PreambleV1;
         var sig_v2 = ParserConstants.SigV2;
 
+        // verify the preamble / signature
+        // but only start parsing when there is enough bytes available
         bool startsWithV1 = ParserUtility.StartsWith(ref sequenceReader, sig_v1);
         bool startsWithV2 = !startsWithV1 && ParserUtility.StartsWith(ref sequenceReader, sig_v2);
 
         if (startsWithV2 && remainingBytes >= len_v2)
         {
+            Debug.Assert(len_v2 > hdr_v2.sig_len, "v1 preamble is too short");
+
             sequenceReader.Advance(hdr_v2.sig_len);
             return TryConsumeInitialV2(ref sequenceReader, ref proxyProtocolHeader);
         }
         if (startsWithV1 && remainingBytes >= len_v1)
         {
+            Debug.Assert(len_v1 > ParserConstants.PreambleV1Length, "v1 preamble is too short");
+
             sequenceReader.Advance(ParserConstants.PreambleV1Length);
             var preambleV1 = MemoryMarshal.CreateSpan(ref _raw_hdr.v1.line[0], ParserConstants.PreambleV1Length);
             sig_v1.CopyTo(preambleV1);
@@ -105,6 +116,8 @@ public struct ProxyProtocolParser
             return TryConsumePreambleV1(ref sequenceReader, ref proxyProtocolHeader);
         }
 
+        // startsWith will be true if there are no bytes available
+        // if no bytes matched with preamble / signature, then protocol message is invalid
         if (!startsWithV1 && !startsWithV2)
         {
             ParserThrowHelper.ThrowInvalidProtocol();
@@ -219,38 +232,50 @@ public struct ProxyProtocolParser
     private unsafe bool TryConsumePreambleV1(ref SequenceReader<byte> sequenceReader, ref ProxyProtocolHeader proxyProtocolHeader)
     {
         int crlfOffset = _bytesFilled;
-        Debug.Assert(crlfOffset >= 0, nameof(crlfOffset) + " is negative.");
+        Debug.Assert(crlfOffset >= 1, nameof(crlfOffset) + " is smaller than 1");
 
         bool isComplete = Consume(ref sequenceReader, hdr_v1.size, advancePast: false);
 
         int bytesFilled = _bytesFilled;
         Debug.Assert(bytesFilled >= 0, nameof(bytesFilled) + " is negative.");
 
-        Span<byte> line = MemoryMarshal.CreateSpan(ref _raw_hdr.v1.line[0], bytesFilled);
-        int crlfLength = bytesFilled - crlfOffset;
-        Debug.Assert(crlfLength >= 0, nameof(crlfLength) + " is negative.");
+        int bytesCopied = bytesFilled - crlfOffset;
+        Debug.Assert(bytesCopied >= 0, nameof(bytesCopied) + " is negative.");
 
-        int crlfIndex = line.Slice(crlfOffset, crlfLength)
-            .IndexOf(ParserConstants.DelimiterV1);
-
-        if (crlfIndex != -1)
+        if (bytesCopied > 0)
         {
-            int lineIndex = crlfOffset + crlfIndex;
+            Span<byte> line = MemoryMarshal.CreateSpan(ref _raw_hdr.v1.line[0], bytesFilled);
 
-            // we just read from crlfOffset to bytesFilled
-            // but actually we only need to consume up to "\r\n"
-            sequenceReader.Advance(crlfIndex + ParserConstants.DelimiterV1Length);
-            proxyProtocolHeader = ParseSpanV1(line[ParserConstants.PreambleV1Length..lineIndex]);
-            _step = ParserStep.Done;
-            return true;
+            // search a bit more to the left
+            // because "\r" and "\n" could be split between multiple calls
+            int crlfIndex = line.Slice(crlfOffset - 1, bytesCopied + 1)
+                .IndexOf(ParserConstants.DelimiterV1);
+
+            if (crlfIndex != -1)
+            {
+                // we just read from crlfOffset to bytesFilled
+                // but actually we only need to consume up to "\r\n"
+                int lineIndex = crlfOffset - 1 + crlfIndex;
+
+                int lineEnd = lineIndex + ParserConstants.DelimiterV1Length;
+                int toAdvance = bytesFilled - lineEnd + bytesCopied;
+                Debug.Assert(toAdvance >= 0, nameof(toAdvance) + " is negative.");
+
+                sequenceReader.Advance(toAdvance);
+
+                proxyProtocolHeader = ParseSpanV1(line[ParserConstants.PreambleV1Length..lineIndex]);
+                _step = ParserStep.Done;
+                return true;
+            }
+
+            if (isComplete)
+            {
+                ParserThrowHelper.ThrowMissingCrlf();
+            }
+
+            sequenceReader.Advance(bytesCopied);
         }
-
-        if (isComplete)
-        {
-            ParserThrowHelper.ThrowMissingCrlf();
-        }
-
-        sequenceReader.Advance(crlfLength);
+        Debug.Assert(!isComplete, "should not be completed yet");
         return false;
     }
 

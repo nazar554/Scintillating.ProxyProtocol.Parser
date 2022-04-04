@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Buffers.Text;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
@@ -22,9 +23,13 @@ internal static class ParserUtility
 
     public static bool StartsWith(ref SequenceReader<byte> sequenceReader, ReadOnlySpan<byte> span, bool advancePast = false)
     {
-        if (sequenceReader.Remaining < span.Length)
+        long bytesRemaining = sequenceReader.Remaining;
+        Debug.Assert(bytesRemaining >= 0, nameof(bytesRemaining) + " is negative.");
+        Debug.Assert(span.Length >= 0, nameof(span.Length) + " is negative.");
+
+        if (bytesRemaining < span.Length)
         {
-            int length = (int)sequenceReader.Remaining;
+            int length = (int)bytesRemaining;
             span = span[..length];
         }
         return sequenceReader.IsNext(span, advancePast);
