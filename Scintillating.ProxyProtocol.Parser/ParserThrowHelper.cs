@@ -18,7 +18,7 @@ internal static class ParserThrowHelper
     private static void _(IFormatProvider? provider, Span<char> initialBuffer,
        [InterpolatedStringHandlerArgument("provider", "initialBuffer")] ref DefaultInterpolatedStringHandler handler)
     {
-        string messsage = string.Create(provider, ref handler);
+        string messsage = string.Create(provider, initialBuffer, ref handler);
         throw new ProxyProtocolException(messsage);
     }
 

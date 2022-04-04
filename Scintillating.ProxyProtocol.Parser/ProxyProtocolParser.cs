@@ -17,13 +17,13 @@ namespace Scintillating.ProxyProtocol.Parser;
 [StructLayout(LayoutKind.Auto)]
 public struct ProxyProtocolParser
 {
-    internal const AddressFamily AF_UNSPEC = AddressFamily.Unspecified;
+    private const AddressFamily AF_UNSPEC = AddressFamily.Unspecified;
 
     // sizeof(raw.hdr_v2.sig) + sizeof(ver_cmd) + sizeof(fam) + sizeof(len) = 16
-    internal const int len_v2 = hdr_v2.sig_len + sizeof(byte) + sizeof(byte) + sizeof(short);
+    private const int len_v2 = hdr_v2.sig_len + sizeof(byte) + sizeof(byte) + sizeof(short);
 
     // "PROXY \r\n".Length = sizeof("PROXY") + sizeof((byte)' ') + sizeof("\r\n") = 8
-    internal const int len_v1 = ParserConstants.PreambleV1Length + ParserConstants.DelimiterV1Length + sizeof(byte);
+    private const int len_v1 = ParserConstants.PreambleV1Length + ParserConstants.DelimiterV1Length + sizeof(byte);
 
     private ushort _v2HeaderLengthWithoutTlv;
     private ushort _bytesFilled;
@@ -82,9 +82,7 @@ public struct ProxyProtocolParser
         Debug.Assert(_v2HeaderLengthWithoutTlv == 0, nameof(_v2HeaderLengthWithoutTlv) + " is non zero.");
 
         bool isEnoughBytesRemainingForV2 = remainingBytes >= len_v2;
-
-        var signature = ParserConstants.SigV2;
-        if (isEnoughBytesRemainingForV2 && sequenceReader.IsNext(signature, advancePast: true))
+        if (isEnoughBytesRemainingForV2 && sequenceReader.IsNext(ParserConstants.SigV2, advancePast: true))
         {
             return TryConsumeInitialV2(ref sequenceReader, ref proxyProtocolHeader);
         }
@@ -103,7 +101,7 @@ public struct ProxyProtocolParser
                 return TryConsumePreambleV1(ref sequenceReader, ref proxyProtocolHeader);
             }
 
-            if (isEnoughBytesRemainingForV2 || !ParserUtility.StartsWith(ref sequenceReader, signature))
+            if (isEnoughBytesRemainingForV2 || !ParserUtility.StartsWith(ref sequenceReader, ParserConstants.SigV2))
             {
                 ParserThrowHelper.ThrowInvalidProtocol();
             }
@@ -235,14 +233,10 @@ public struct ProxyProtocolParser
         if (crlfIndex != -1)
         {
             int lineIndex = crlfOffset + crlfIndex;
-            if (lineIndex > bytesFilled)
-            {
-                int count = lineIndex - bytesFilled + ParserConstants.DelimiterV1Length;
-                if (count > 0)
-                {
-                    sequenceReader.Advance(count);
-                }
-            }
+
+            // we just read from crlfOffset to bytesFilled
+            // but actually we only need to consume up to "\r\n"
+            sequenceReader.Advance(crlfIndex + ParserConstants.DelimiterV1Length);
             proxyProtocolHeader = ParseSpanV1(line[ParserConstants.PreambleV1Length..lineIndex]);
             _step = ParserStep.Done;
             return true;

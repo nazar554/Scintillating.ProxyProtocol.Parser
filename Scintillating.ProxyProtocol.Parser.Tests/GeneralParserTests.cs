@@ -17,11 +17,10 @@ public class GeneralParserTests
         bool success = _parser.TryParse(sequence, out var advanceTo, out var proxyProtocolHeader);
 
         success.Should().BeFalse("it's a partial input");
-        advanceTo.Consumed.Should().BeEquivalentTo(sequence.Start, "no data is consumed for partial input");
-        advanceTo.Examined.Should().BeEquivalentTo(sequence.End, "whole sequence must be examined");
+        advanceTo.Consumed.Should().Be(sequence.Start, "no data is consumed for partial input");
+        advanceTo.Examined.Should().Be(sequence.End, "whole sequence must be examined");
         proxyProtocolHeader.Should().BeNull("it's a partial input");
     }
-
 
     [Fact]
     public void ShouldNotConsumePartialInputV2()
@@ -67,7 +66,7 @@ public class GeneralParserTests
     public void ShouldThrowOnInvalidV2Header()
     {
         var sig = ParserConstants.SigV2;
-        var bytes = new byte[ProxyProtocolParser.len_v2];
+        var bytes = new byte[16];
         sig.CopyTo(bytes);
         bytes[sig.Length] = 0xFF;
 
