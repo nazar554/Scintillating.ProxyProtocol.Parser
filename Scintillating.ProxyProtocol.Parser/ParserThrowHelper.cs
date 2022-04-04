@@ -83,8 +83,8 @@ internal static class ParserThrowHelper
         => _(CultureInfo.InvariantCulture, stackalloc char[100], $"PROXY V1: failed to copy expected amount of bytes ({amountToCopy}).");
 
     [DoesNotReturn]
-    public static void ThrowProxyV2FailedCopy(int amountToCopy)
-     => _(CultureInfo.InvariantCulture, stackalloc char[100], $"PROXY V2: failed to copy expected amount of bytes ({amountToCopy}).");
+    public static void ThrowProxyFailedCopy(int bytes)
+     => _(CultureInfo.InvariantCulture, stackalloc char[100], $"PROXY: failed to copy expected amount of bytes ({bytes}).");
 
     [DoesNotReturn]
     public static void ThrowUnknownParserStep(ParserStep parserStep)

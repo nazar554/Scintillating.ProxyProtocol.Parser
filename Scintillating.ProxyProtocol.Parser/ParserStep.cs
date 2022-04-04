@@ -1,6 +1,6 @@
 ﻿namespace Scintillating.ProxyProtocol.Parser;
 
-internal enum ParserStep
+internal enum ParserStep : sbyte
 {
     Invalid = -1,
     Initial,

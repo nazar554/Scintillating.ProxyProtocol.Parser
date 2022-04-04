@@ -1,4 +1,5 @@
-﻿using System.Buffers.Text;
+﻿using System.Buffers;
+using System.Buffers.Text;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
@@ -8,15 +9,25 @@ namespace Scintillating.ProxyProtocol.Parser;
 
 internal static class ParserUtility
 {
-    private static readonly UTF8Encoding _unixDomainSocketPathEncoding = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+    private static readonly UTF8Encoding _encoding = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     public static bool TryParsePortNumber(ReadOnlySpan<byte> source, out ushort port)
     {
         bool success = Utf8Parser.TryParse(source, out ushort value, out int length, 'd')
             && length == source.Length;
 
-        port = success ? value : (ushort)0;
+        port = success ? value : default;
         return success;
+    }
+
+    public static bool StartsWith(ref SequenceReader<byte> sequenceReader, ReadOnlySpan<byte> span, bool advancePast = false)
+    {
+        if (sequenceReader.Remaining < span.Length)
+        {
+            int length = (int)sequenceReader.Remaining;
+            span = span[..length];
+        }
+        return sequenceReader.IsNext(span, advancePast);
     }
 
     public static bool TrySplit(ref ReadOnlySpan<byte> source, byte sep, out ReadOnlySpan<byte> segment)
@@ -30,7 +41,7 @@ internal static class ParserUtility
 
         segment = source[..index];
         int next = index + 1;
-        source = next < source.Length ? source[next..] : ReadOnlySpan<byte>.Empty;
+        source = next < source.Length ? source[next..] : default;
         return true;
     }
 
@@ -97,7 +108,7 @@ internal static class ParserUtility
         string path;
         try
         {
-            path = _unixDomainSocketPathEncoding.GetString(source);
+            path = _encoding.GetString(source);
         }
         catch (ArgumentException ex)
         {
