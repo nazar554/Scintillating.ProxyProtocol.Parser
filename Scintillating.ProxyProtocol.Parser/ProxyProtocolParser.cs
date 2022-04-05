@@ -42,23 +42,25 @@ public struct ProxyProtocolParser
         out ProxyProtocolAdvanceTo advanceTo,
         [MaybeNullWhen(returnValue: false)] out ProxyProtocolHeader proxyProtocolHeader)
     {
-        var sequenceReader = new SequenceReader<byte>(sequence);
-        ProxyProtocolHeader value = null!;
+        bool isNotEmpty = !sequence.IsEmpty;
+        var sequenceReader = isNotEmpty ? new SequenceReader<byte>(sequence) : default;
 
+        ProxyProtocolHeader value = null!;
         SequencePosition? examined = null;
+
         bool success;
         ParserStep step = _step;
         try
         {
             success = step switch
             {
-                ParserStep.Initial => TryConsumeInitial(ref sequenceReader, ref examined, ref value),
-                ParserStep.PreambleV1 => TryConsumePreambleV1(ref sequenceReader, ref value),
-                ParserStep.AddressFamilyV2 => TryConsumeAddressFamilyV2(ref sequenceReader, ref value),
-                ParserStep.LocalV2 => TryConsumeLocalV2(ref sequenceReader, ref value),
-                ParserStep.TypeLengthValueV2 => TryConsumeTypeLengthValueV2(ref sequenceReader, ref value),
                 ParserStep.Done => ThrowAlreadyDone(),
                 ParserStep.Invalid => ThrowInvalidProtocol(),
+                ParserStep.Initial => isNotEmpty && TryConsumeInitial(ref sequenceReader, ref examined, ref value),
+                ParserStep.PreambleV1 => isNotEmpty && TryConsumePreambleV1(ref sequenceReader, ref value),
+                ParserStep.AddressFamilyV2 => isNotEmpty && TryConsumeAddressFamilyV2(ref sequenceReader, ref value),
+                ParserStep.LocalV2 => isNotEmpty && TryConsumeLocalV2(ref sequenceReader, ref value),
+                ParserStep.TypeLengthValueV2 => isNotEmpty && TryConsumeTypeLengthValueV2(ref sequenceReader, ref value),
                 _ => ThrowUnknownParserStep(step),
             };
         }
@@ -74,8 +76,9 @@ public struct ProxyProtocolParser
         }
 
         proxyProtocolHeader = value;
-        var consumed = sequenceReader.Position;
-        advanceTo = new ProxyProtocolAdvanceTo(consumed, examined ?? consumed);
+        SequencePosition advanceToConsumed = isNotEmpty ? sequenceReader.Position : sequence.Start;
+        SequencePosition advanceToExamined = isNotEmpty ? examined.GetValueOrDefault(advanceToConsumed) : advanceToConsumed;
+        advanceTo = new ProxyProtocolAdvanceTo(advanceToConsumed, advanceToExamined);
         return success;
     }
 
@@ -275,7 +278,11 @@ public struct ProxyProtocolParser
 
             sequenceReader.Advance(bytesCopied);
         }
-        Debug.Assert(!isComplete, "should not be completed yet");
+        else
+        {
+            Debug.Assert(!isComplete, "line got filled as a result of a 0-byte copy.");
+        }
+
         return false;
     }
 

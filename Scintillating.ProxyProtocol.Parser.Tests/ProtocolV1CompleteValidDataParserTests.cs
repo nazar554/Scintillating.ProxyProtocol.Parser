@@ -45,9 +45,9 @@ public class ProtocolV1CompleteValidDataParserTests
                 .Should().Be((ushort)sequence.Length, "entire header has to be consumed");
 
             proxyProtocolHeader!.AddressFamily
-                .Should().Be(addressFamily, "example uses TCP4");
+                .Should().Be(addressFamily, "it should match the sample");
             proxyProtocolHeader!.SocketType
-                .Should().Be(socketType, "example uses TCP4");
+                .Should().Be(socketType, "it should match the sample");
 
             proxyProtocolHeader!.Source
                 .Should().Be(source, "source endpoint and port should match");
