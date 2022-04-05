@@ -261,7 +261,7 @@ public struct ProxyProtocolParser
                 int lineIndex = crlfOffset - 1 + crlfIndex;
 
                 int lineEnd = lineIndex + ParserConstants.DelimiterV1Length;
-                int toAdvance = bytesFilled - lineEnd + bytesCopied;
+                int toAdvance = lineEnd - crlfOffset;
                 Debug.Assert(toAdvance >= 0, nameof(toAdvance) + " is negative.");
 
                 sequenceReader.Advance(toAdvance);

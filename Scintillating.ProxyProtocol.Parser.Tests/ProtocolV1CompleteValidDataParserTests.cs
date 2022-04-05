@@ -29,8 +29,12 @@ public class ProtocolV1CompleteValidDataParserTests
 
         success.Should().BeTrue("input data is complete");
 
-        sequence.GetOffset(advanceTo.Consumed).Should().Be(sequence.Length, "input data is complete");
-        sequence.GetOffset(advanceTo.Examined).Should().Be(sequence.Length, "input data is complete");
+        int offset = line.IndexOf("\r\n", StringComparison.Ordinal);
+        offset.Should().NotBe(-1, "input data should contains CRLF");
+        offset += 2;
+
+        sequence.GetOffset(advanceTo.Consumed).Should().Be(offset, "input data is complete");
+        sequence.GetOffset(advanceTo.Examined).Should().Be(offset, "input data is complete");
         
         using (new AssertionScope(nameof(proxyProtocolHeader)))
         {
@@ -42,7 +46,7 @@ public class ProtocolV1CompleteValidDataParserTests
             proxyProtocolHeader!.Command
                 .Should().Be(ProxyCommand.Proxy, "there is a single command in protocol V1");
             proxyProtocolHeader!.Length
-                .Should().Be((ushort)sequence.Length, "entire header has to be consumed");
+                .Should().Be((ushort)offset, "entire header has to be consumed");
 
             proxyProtocolHeader!.AddressFamily
                 .Should().Be(addressFamily, "it should match the sample");
@@ -80,12 +84,24 @@ public class ProtocolV1CompleteValidDataParserTests
             IPEndPoint.Parse("[ffff::2]:65535"),
         };
         yield return new object[] {
+            "PROXY TCP6 ffff::1 ffff::2 65534 65535\r\nPRI * HTTP/2.0\r\n\r\nSM\r\n\r\n",
+            AddressFamily.InterNetworkV6,
+            SocketType.Stream,
+            IPEndPoint.Parse("[ffff::1]:65534"),
+            IPEndPoint.Parse("[ffff::2]:65535"),
+        };
+        yield return new object[] {
             "PROXY UNKNOWN\r\n",
             AddressFamily.Unspecified,
             SocketType.Unknown,
         };
         yield return new object[] {
             "PROXY UNKNOWN ffff:f...f:ffff ffff:f...f:ffff 65535 65535\r\n",
+            AddressFamily.Unspecified,
+            SocketType.Unknown,
+        };
+        yield return new object[] {
+            "PROXY UNKNOWN ffff:f...f:ffff ffff:f...f:ffff 65535 65535\r\nGET / HTTP1.1\r\nHost: example.com\r\n",
             AddressFamily.Unspecified,
             SocketType.Unknown,
         };
