@@ -23,6 +23,18 @@ public class GeneralParserTests
     }
 
     [Fact]
+    public void ShouldIgnoreEmptySequence()
+    {
+        ReadOnlySequence<byte> sequence = default;
+        bool success = _parser.TryParse(sequence, out var advanceTo, out var proxyProtocolHeader);
+
+        success.Should().BeFalse("it's an empty sequence");
+        advanceTo.Consumed.Should().Be(sequence.Start, "it's an empty sequence");
+        advanceTo.Examined.Should().Be(sequence.Start, "it's an empty sequence");
+        proxyProtocolHeader.Should().BeNull("it's an empty sequence");
+    }
+
+    [Fact]
     public void ShouldNotConsumePartialInputV2()
     {
         var sequence = new ReadOnlySequence<byte>(ParserConstants.SigV2.ToArray());

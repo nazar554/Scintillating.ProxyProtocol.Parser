@@ -139,9 +139,9 @@ public class ProtocolV1IncompleteParserTests
                             .Should().Be((ushort)expectedLength, "entire header has to be consumed");
 
                         proxyProtocolHeader!.AddressFamily
-                            .Should().Be(addressFamily, "example uses TCP4");
+                            .Should().Be(addressFamily, "it should match the sample");
                         proxyProtocolHeader!.SocketType
-                            .Should().Be(socketType, "example uses TCP4");
+                            .Should().Be(socketType, "it should match the sample");
 
                         proxyProtocolHeader!.Source
                             .Should().Be(source, "source endpoint and port should match");
@@ -168,6 +168,20 @@ public class ProtocolV1IncompleteParserTests
             SocketType.Stream,
             IPEndPoint.Parse("255.255.255.255:65535"),
             IPEndPoint.Parse("255.255.255.255:65535"),
+        };
+        yield return new object[] {
+            new string[] { "PROXY TCP4 255.255.255.255" , " 255.255.255.255 65535 65535\r\n" },
+            AddressFamily.InterNetwork,
+            SocketType.Stream,
+            IPEndPoint.Parse("255.255.255.255:65535"),
+            IPEndPoint.Parse("255.255.255.255:65535"),
+        };
+        yield return new object[] {
+            new string[] { "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ff", "ff:ffff:ffff ffff:ffff:ffff:ffff:ffff:f", "fff:ffff:ffff 65534 65535\r\n" },
+            AddressFamily.InterNetworkV6,
+            SocketType.Stream,
+            IPEndPoint.Parse("[ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]:65534"),
+            IPEndPoint.Parse("[ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]:65535"),
         };
         yield return new object[] {
             new string?[] {
