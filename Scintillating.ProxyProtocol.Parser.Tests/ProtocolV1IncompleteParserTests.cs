@@ -78,6 +78,7 @@ public class ProtocolV1IncompleteParserTests
         ProxyProtocolAdvanceTo advanceTo = default;
         ProxyProtocolHeader proxyProtocolHeader = null!;
 
+        int consumed = 0;
         for (int index = 0; index < sequenceChunks.Length; ++index)
         {
             var sequence = sequenceChunks[index];
@@ -94,7 +95,7 @@ public class ProtocolV1IncompleteParserTests
                     sequence.GetOffset(advanceTo.Examined)
                         .Should().Be(sequence.Length, "all data of a partial chunk must be examined");
 
-                    if (index == 0 && sequence.Length < ProxyProtocolParser.len_v1)
+                    if (consumed == 0 && sequence.Length < ProxyProtocolParser.len_v1)
                     {
                         sequence.GetOffset(advanceTo.Consumed)
                             .Should().Be(0, "initial chunk is not long enough to be consumed");
@@ -105,12 +106,14 @@ public class ProtocolV1IncompleteParserTests
                     }
                     else
                     {
+                        consumed++;
                         sequence.GetOffset(advanceTo.Consumed)
                             .Should().Be(sequence.Length, "all data of a partial chunk must be consumed");
                     }
                 }
                 else
                 {
+                    consumed++;
                     success.Should().BeTrue("it's the final chunk");
                     proxyProtocolHeader.Should().NotBeNull("it's the final chunk");
 
@@ -192,6 +195,13 @@ public class ProtocolV1IncompleteParserTests
             SocketType.Stream,
             IPEndPoint.Parse("255.255.255.255:65535"),
             IPEndPoint.Parse("255.255.255.255:65535"),
+        };
+        yield return new object[] {
+            new string[] { "PRO", "XY ", "\r\n" },
+            AddressFamily.InterNetworkV6,
+            SocketType.Stream,
+            IPEndPoint.Parse("[ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]:65534"),
+            IPEndPoint.Parse("[ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]:65535"),
         };
         yield return new object[] {
             new string?[] {

@@ -1,9 +1,9 @@
-﻿using Xunit;
-using FluentAssertions;
-using System.Net.Sockets;
-using System.Net;
+﻿using FluentAssertions;
 using FluentAssertions.Execution;
 using System.Buffers;
+using System.Net;
+using System.Net.Sockets;
+using Xunit;
 
 namespace Scintillating.ProxyProtocol.Parser.Tests;
 
@@ -35,7 +35,7 @@ public class ProtocolV1CompleteValidDataParserTests
 
         sequence.GetOffset(advanceTo.Consumed).Should().Be(offset, "input data is complete");
         sequence.GetOffset(advanceTo.Examined).Should().Be(offset, "input data is complete");
-        
+
         using (new AssertionScope(nameof(proxyProtocolHeader)))
         {
             proxyProtocolHeader
