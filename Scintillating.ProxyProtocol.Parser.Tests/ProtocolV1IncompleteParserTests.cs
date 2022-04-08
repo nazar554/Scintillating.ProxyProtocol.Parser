@@ -197,13 +197,6 @@ public class ProtocolV1IncompleteParserTests
             IPEndPoint.Parse("255.255.255.255:65535"),
         };
         yield return new object[] {
-            new string[] { "PRO", "XY ", "\r\n" },
-            AddressFamily.InterNetworkV6,
-            SocketType.Stream,
-            IPEndPoint.Parse("[ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]:65534"),
-            IPEndPoint.Parse("[ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]:65535"),
-        };
-        yield return new object[] {
             new string?[] {
                 "PR", "OXY TCP4 255.", "255.255.255 255.", "255.255", ".255 655", "", "35 65535\r", "\n",
                 null, "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
