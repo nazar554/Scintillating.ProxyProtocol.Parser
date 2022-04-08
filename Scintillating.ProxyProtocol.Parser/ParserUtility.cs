@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Buffers.Binary;
 using System.Buffers.Text;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -90,6 +91,15 @@ internal static class ParserUtility
         {
             throw new ProxyProtocolException("PROXY V2: failed to parse IP address " + what + ".", ex);
         }
+    }
+
+    private static ushort FromUInt16BigEndian(ushort value) => BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(value) : value;
+
+    public static IPEndPoint CreateEndpointFromAddressAndPortUInt16BigEndian(IPAddress address, ushort port_be)
+    {
+        int port = FromUInt16BigEndian(port_be);
+
+        return new IPEndPoint(address, port);
     }
 
     public static UnixDomainSocketEndPoint CreateUnixEndPoint(ReadOnlySpan<byte> source, string what)

@@ -218,8 +218,8 @@ public struct ProxyProtocolParser
             return false;
         }
 
-        int tlvLength = _raw_hdr.v2.len - length;
-        Debug.Assert(tlvLength >= 0, nameof(tlvLength) + " is negative.");
+        int tlvLength = _raw_hdr.v2.len + len_v2 - length;
+        Debug.Assert(tlvLength >= 0, nameof(tlvLength) + " is negative but " + nameof(_v2HeaderLengthWithoutTlv) + " was validated");
 
         if (tlvLength > 0)
         {
@@ -431,8 +431,8 @@ public struct ProxyProtocolParser
         var src = ParserUtility.CreateIPAddress(ip4.src_addr, nameof(ip4.src_addr));
         var dst = ParserUtility.CreateIPAddress(ip4.dst_addr, nameof(ip4.dst_addr));
 
-        var source = new IPEndPoint(src, ip4.src_port);
-        var destination = new IPEndPoint(dst, ip4.dst_port);
+        var source = ParserUtility.CreateEndpointFromAddressAndPortUInt16BigEndian(src, ip4.src_port);
+        var destination = ParserUtility.CreateEndpointFromAddressAndPortUInt16BigEndian(dst, ip4.dst_port);
 
         return (source, destination);
     }
@@ -445,8 +445,8 @@ public struct ProxyProtocolParser
         var dst_addr = MemoryMarshal.CreateReadOnlySpan(ref ip6.dst_addr[0], ip6.addr_len);
         var dst = ParserUtility.CreateIPAddress(dst_addr, nameof(dst_addr));
 
-        var source = new IPEndPoint(src, ip6.src_port);
-        var destination = new IPEndPoint(dst, ip6.dst_port);
+        var source = ParserUtility.CreateEndpointFromAddressAndPortUInt16BigEndian(src, ip6.src_port);
+        var destination = ParserUtility.CreateEndpointFromAddressAndPortUInt16BigEndian(dst, ip6.dst_port);
 
         return (source, destination);
     }
