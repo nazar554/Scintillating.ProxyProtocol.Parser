@@ -93,11 +93,9 @@ internal static class ParserUtility
         }
     }
 
-    private static ushort FromUInt16BigEndian(ushort value) => BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(value) : value;
-
     public static IPEndPoint CreateEndpointFromAddressAndPortUInt16BigEndian(IPAddress address, ushort port_be)
     {
-        int port = FromUInt16BigEndian(port_be);
+        ushort port = BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(port_be) : port_be;
 
         return new IPEndPoint(address, port);
     }

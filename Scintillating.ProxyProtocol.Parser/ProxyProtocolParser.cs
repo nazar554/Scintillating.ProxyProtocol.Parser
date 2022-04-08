@@ -198,7 +198,7 @@ public struct ProxyProtocolParser
         }
 
         proxyProtocolHeader = new ProxyProtocolHeader(
-            ProxyVersion.V1,
+            ProxyVersion.V2,
             ProxyCommand.Local,
             length,
             AddressFamily.Unspecified,
