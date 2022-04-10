@@ -119,9 +119,9 @@ public class ProtocolV2CompleteValidDataParserTests
                 0x11,
                 0x00, 0xC0,
                 0x7F, 0x00, 0x00, 0x01, 0x7F, 0x00, 0x00, 0x01, 0x00, 0x2A, 0x05, 0x39,
-                0xFF, 0x00, 0xFF
             }
-            .Concat(new byte[0xC0])
+            .Concat(new byte[]{ (byte)ProxyProtocolTlvType.PP2_TYPE_NOOP, 0x00, 177 })
+            .Concat(new byte[177])
             .ToArray(),
             0xC0 + ProxyProtocolParser.len_v2,
             ProxyCommand.Proxy,
@@ -137,7 +137,7 @@ public class ProtocolV2CompleteValidDataParserTests
                 0x11,
                 0xFF, 0xFF,
                 0x7F, 0x00, 0x00, 0x01, 0x7F, 0x00, 0x00, 0x01, 0x00, 0x2A, 0x05, 0x39,
-                0xFF, 0x00, 0xFF
+                0xF7, 0xFF, 0xF0
             }
             .Concat(new byte[ushort.MaxValue])
             .ToArray(),

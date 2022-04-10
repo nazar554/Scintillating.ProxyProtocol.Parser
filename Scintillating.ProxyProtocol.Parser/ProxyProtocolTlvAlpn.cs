@@ -15,7 +15,7 @@ public class ProxyProtocolTlvAlpn : ProxyProtocolTlv
         Value = applicationProtocol;
     }
 
-    private static ushort GetLength(ReadOnlyMemory<byte> applicationProtocol)
+    private static int GetLength(ReadOnlyMemory<byte> applicationProtocol)
     {
         ParserUtility.Assert(applicationProtocol.Length >= 0);
 
@@ -24,7 +24,7 @@ public class ProxyProtocolTlvAlpn : ProxyProtocolTlv
         {
             ParserThrowHelper.ThrowZeroByteAlpn();
         }
-        return (ushort)length;
+        return length;
     }
 
     /// <summary>

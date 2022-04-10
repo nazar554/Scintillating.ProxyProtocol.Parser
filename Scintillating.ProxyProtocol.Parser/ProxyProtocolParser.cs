@@ -1,11 +1,12 @@
 ﻿using Scintillating.ProxyProtocol.Parser.raw;
 using System.Buffers;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+
+using static Scintillating.ProxyProtocol.Parser.ProxyProtocolTlvType;
 
 [module: SkipLocalsInit]
 
@@ -311,7 +312,7 @@ public struct ProxyProtocolParser
         ParserUtility.Assert(tlvLength > 0);
 
         // make sure we can read TLVs all at once
-        if (remaining <= tlvLength)
+        if (remaining < tlvLength)
         {
             SequenceReader<byte> copy = sequenceReader;
             copy.AdvanceToEnd();
@@ -349,50 +350,107 @@ public struct ProxyProtocolParser
         return true;
     }
 
-    private unsafe ProxyProtocolHeader ConsumeTypeLengthValueFromSpanV2(Span<byte> tlv, int length, ref SequenceReader<byte> sequenceReader)
+    private unsafe ProxyProtocolHeader ConsumeTypeLengthValueFromSpanV2(Span<byte> tlv, int tlvLength, ref SequenceReader<byte> sequenceReader)
     {
-        var span = tlv.IsEmpty ? stackalloc byte[length] : tlv;
+        var span = tlv.IsEmpty ? stackalloc byte[tlvLength] : tlv;
         if (!sequenceReader.TryCopyTo(span))
         {
-            ParserThrowHelper.ThrowProxyFailedCopy(length);
+            ParserThrowHelper.ThrowProxyFailedCopy(tlvLength);
         }
-        sequenceReader.Advance(length);
+        sequenceReader.Advance(tlvLength);
 
         // TODO: process span
 
-        return CreateProxyProtocolHeaderV2();
+        ReadOnlyCollectionBuilder<ProxyProtocolTlv>? builder = null;
+        int index = 0;
+        while (index < tlvLength)
+        {
+            if (tlvLength - index < 3)
+            {
+                ParserThrowHelper.ThrowInvalidLength();
+            }
+            byte type = tlv[index];
+            byte length_hi = tlv[index+1];
+            byte length_lo = tlv[index+2];
+
+            int length = length_lo | (length_hi << 8);
+            ParserUtility.Assert(length >= 0);
+
+            int newIndex = index + length + 3;
+            if (newIndex > tlvLength)
+            {
+                ParserThrowHelper.ThrowInvalidLength();
+            }
+            Span<byte> value = tlv.Slice(index + 3, length);
+
+            var item = BuildTlv(type, value);
+            if (item is not null)
+            {
+                (builder ??= new()).Add(item);
+            }
+            index = newIndex;
+        }
+
+        return CreateProxyProtocolHeaderV2(
+            builder?.Count > 0 ? builder.ToReadOnlyCollection() : null
+        );
     }
 
-    private ProxyProtocolHeader CreateProxyProtocolHeaderV2()
+    private ProxyProtocolTlv? BuildTlv(byte type, Span<byte> value)
+    {
+        var ptype = (ProxyProtocolTlvType)type;
+        return ptype switch
+        {
+            PP2_TYPE_NOOP => null,
+
+            PP2_TYPE_ALPN => value.IsEmpty ? ThrowProxyV2AlpnEmpty() : new ProxyProtocolTlvAlpn(value.ToArray()),
+            PP2_TYPE_AUTHORITY => throw new NotImplementedException(),
+            PP2_TYPE_CRC32C => throw new NotImplementedException(),
+            PP2_TYPE_UNIQUE_ID => throw new NotImplementedException(),
+            PP2_TYPE_SSL => throw new NotImplementedException(),
+            PP2_TYPE_NETNS => throw new NotImplementedException(),
+
+            >= PP2_TYPE_MIN_CUSTOM and <= PP2_TYPE_MAX_CUSTOM => new ProxyProtocolTlvCustom(ptype, value.ToArray()),
+            >= PP2_TYPE_MIN_EXPERIMENT and <= PP2_TYPE_MAX_EXPERIMENT => new ProxyProtocolTlvExperiment(ptype, value.ToArray()),
+
+            >= PP2_SUBTYPE_SSL_VERSION and <= PP2_SUBTYPE_SSL_KEY_ALG => ThrowProxyV2InvalidTlvType(type, "reserved for SSL sub TLV subtypes"),
+            >= PP2_TYPE_MIN_FUTURE and <= PP2_TYPE_MAX_FUTURE => ThrowProxyV2InvalidTlvType(type, "reserved for future"),
+            _ => ThrowProxyV2InvalidTlvType(type, "unrecognized type"),
+        };
+    }
+
+    private ProxyProtocolHeader CreateProxyProtocolHeaderV2(IReadOnlyList<ProxyProtocolTlv>? typeLengthValues = null)
     {
         byte fam = _raw_hdr.v2.fam;
 
         return fam switch
         {
-            0x00 => CreateProxyProtocolHeaderV2(AF_UNSPEC, SocketType.Unknown),
-            0x10 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetwork, SocketType.Unknown, MapIPv4()),
-            0x20 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetworkV6, SocketType.Unknown, MapIPv6()),
-            0x30 => CreateProxyProtocolHeaderV2(AddressFamily.Unix, SocketType.Unknown, MapUnix()),
+            0x00 => CreateProxyProtocolHeaderV2(AF_UNSPEC, SocketType.Unknown, typeLengthValues: typeLengthValues),
+            0x10 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetwork, SocketType.Unknown, MapIPv4(), typeLengthValues: typeLengthValues),
+            0x20 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetworkV6, SocketType.Unknown, MapIPv6(), typeLengthValues: typeLengthValues),
+            0x30 => CreateProxyProtocolHeaderV2(AddressFamily.Unix, SocketType.Unknown, MapUnix(), typeLengthValues: typeLengthValues),
 
-            0x01 => CreateProxyProtocolHeaderV2(AF_UNSPEC, SocketType.Stream),
-            0x11 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetwork, SocketType.Stream, MapIPv4()),
-            0x21 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetworkV6, SocketType.Stream, MapIPv6()),
-            0x31 => CreateProxyProtocolHeaderV2(AddressFamily.Unix, SocketType.Stream, MapUnix()),
+            0x01 => CreateProxyProtocolHeaderV2(AF_UNSPEC, SocketType.Stream, typeLengthValues: typeLengthValues),
+            0x11 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetwork, SocketType.Stream, MapIPv4(), typeLengthValues: typeLengthValues),
+            0x21 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetworkV6, SocketType.Stream, MapIPv6(), typeLengthValues: typeLengthValues),
+            0x31 => CreateProxyProtocolHeaderV2(AddressFamily.Unix, SocketType.Stream, MapUnix(), typeLengthValues: typeLengthValues),
 
-            0x02 => CreateProxyProtocolHeaderV2(AF_UNSPEC, SocketType.Dgram),
-            0x12 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetwork, SocketType.Dgram, MapIPv4()),
-            0x22 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetworkV6, SocketType.Dgram, MapIPv6()),
-            0x32 => CreateProxyProtocolHeaderV2(AddressFamily.Unix, SocketType.Dgram, MapUnix()),
+            0x02 => CreateProxyProtocolHeaderV2(AF_UNSPEC, SocketType.Dgram, typeLengthValues: typeLengthValues),
+            0x12 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetwork, SocketType.Dgram, MapIPv4(), typeLengthValues: typeLengthValues),
+            0x22 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetworkV6, SocketType.Dgram, MapIPv6(), typeLengthValues: typeLengthValues),
+            0x32 => CreateProxyProtocolHeaderV2(AddressFamily.Unix, SocketType.Dgram, MapUnix(), typeLengthValues: typeLengthValues),
             _ => ThrowProxyV2InvalidSocketTypeFam(fam),
         };
     }
 
     private ProxyProtocolHeader CreateProxyProtocolHeaderV2(AddressFamily addressFamily, SocketType socketType,
-       (EndPoint? source, EndPoint? destination) endpoints = default
+       (EndPoint? source, EndPoint? destination) endpoints = default,
+       IReadOnlyList<ProxyProtocolTlv>? typeLengthValues = null
     )
     {
         return new(ProxyVersion.V2, ProxyCommand.Proxy, _raw_hdr.v2.len + len_v2,
-            addressFamily, socketType, endpoints.source, endpoints.destination
+            addressFamily, socketType, endpoints.source, endpoints.destination,
+            typeLengthValues
         );
     }
 
@@ -638,6 +696,20 @@ public struct ProxyProtocolParser
     {
         ParserThrowHelper.ThrowProxyV2InvalidFam(fam);
         return 0;
+    }
+
+    [DoesNotReturn]
+    private static ProxyProtocolTlv? ThrowProxyV2InvalidTlvType(byte type, string why)
+    {
+        ParserThrowHelper.ThrowProxyV2InvalidTlvType(type, why);
+        return null;
+    }
+
+    [DoesNotReturn]
+    private static ProxyProtocolTlv? ThrowProxyV2AlpnEmpty()
+    {
+        ParserThrowHelper.ThrowZeroByteAlpn();
+        return null;
     }
 
     [DoesNotReturn]

@@ -83,8 +83,8 @@ internal static class ParserThrowHelper
         => _(CultureInfo.InvariantCulture, stackalloc char[64], $"PROXY V2: invalid fam value 0x{fam:x2}.");
 
     [DoesNotReturn]
-    public static void ThrowProxyV2InvalidTlvType(byte type)
-      => _(CultureInfo.InvariantCulture, stackalloc char[64], $"PROXY V2: invalid tlv type 0x{type:x2}.");
+    public static void ThrowProxyV2InvalidTlvType(byte type, string why)
+      => _(CultureInfo.InvariantCulture, stackalloc char[64], $"PROXY V2: invalid tlv type 0x{type:x2}: {why}.");
 
 
     [DoesNotReturn]
