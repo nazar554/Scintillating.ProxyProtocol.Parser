@@ -20,7 +20,7 @@ public struct ProxyProtocolParser
     private const AddressFamily AF_UNSPEC = AddressFamily.Unspecified;
 
     // sizeof(raw.hdr_v2.sig) + sizeof(ver_cmd) + sizeof(fam) + sizeof(len) = 16
-    internal const int len_v2 = hdr_v2.sig_len + sizeof(byte) + sizeof(byte) + sizeof(short);
+    internal const int len_v2 = (hdr_v2.sig_len + 2) * sizeof(byte) + sizeof(short);
 
     // "PROXY \r\n".Length = sizeof("PROXY") + sizeof((byte)' ') + sizeof("\r\n") = 8
     internal const int len_v1 = ParserConstants.PreambleV1Length + ParserConstants.DelimiterV1Length + sizeof(byte);
@@ -176,7 +176,8 @@ public struct ProxyProtocolParser
                 >= 0x30 and <= 0x32 => sizeof(unix),
                 _ => ThrowProxyV2InvalidFam(fam),
             };
-            if (len < proxyAddrLength)
+
+            if (proxyAddrLength > sizeof(proxy_addr) || proxyAddrLength > len)
             {
                 ParserThrowHelper.ThrowInvalidLength();
             }
