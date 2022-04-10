@@ -18,6 +18,7 @@ namespace Scintillating.ProxyProtocol.Parser;
 public struct ProxyProtocolParser
 {
     private const AddressFamily AF_UNSPEC = AddressFamily.Unspecified;
+    private const int TLV_STACKALLOC_THRESHOLD = 1024;
 
     // sizeof(raw.hdr_v2.sig) + sizeof(ver_cmd) + sizeof(fam) + sizeof(len) = 16
     internal const int len_v2 = (hdr_v2.sig_len + 2) * sizeof(byte) + sizeof(short);
@@ -58,9 +59,9 @@ public struct ProxyProtocolParser
                 ParserStep.Invalid => ThrowInvalidProtocol(),
                 ParserStep.Initial => isNotEmpty && TryConsumeInitial(ref sequenceReader, ref examined, ref value),
                 ParserStep.PreambleV1 => isNotEmpty && TryConsumePreambleV1(ref sequenceReader, ref value),
-                ParserStep.AddressFamilyV2 => isNotEmpty && TryConsumeAddressFamilyV2(ref sequenceReader, ref value),
+                ParserStep.AddressFamilyV2 => isNotEmpty && TryConsumeAddressFamilyV2(ref sequenceReader, ref examined, ref value),
                 ParserStep.LocalV2 => isNotEmpty && TryConsumeLocalV2(ref sequenceReader, ref value),
-                ParserStep.TlvV2 => isNotEmpty && TryConsumeTypeLengthValueV2(ref sequenceReader, ref value),
+                ParserStep.TlvV2 => isNotEmpty && TryConsumeTypeLengthValueV2(ref sequenceReader, ref examined, ref value),
                 _ => ThrowUnknownParserStep(step),
             };
         }
@@ -101,7 +102,7 @@ public struct ProxyProtocolParser
             ParserUtility.Assert(len_v2 > hdr_v2.sig_len);
 
             sequenceReader.Advance(hdr_v2.sig_len);
-            return TryConsumeInitialV2(ref sequenceReader, ref proxyProtocolHeader);
+            return TryConsumeInitialV2(ref sequenceReader, ref examined, ref proxyProtocolHeader);
         }
         if (startsWithV1 && remainingBytes >= len_v1)
         {
@@ -128,7 +129,7 @@ public struct ProxyProtocolParser
         return false;
     }
 
-    private unsafe bool TryConsumeInitialV2(ref SequenceReader<byte> sequenceReader, ref ProxyProtocolHeader proxyProtocolHeader)
+    private unsafe bool TryConsumeInitialV2(ref SequenceReader<byte> sequenceReader, ref SequencePosition? examined, ref ProxyProtocolHeader proxyProtocolHeader)
     {
         if (!sequenceReader.TryRead(out byte ver_cmd) || (ver_cmd & 0xF0) != 0x20)
         {
@@ -178,7 +179,7 @@ public struct ProxyProtocolParser
 
             _proxyAddrLength = (ushort)proxyAddrLength;
             _step = ParserStep.AddressFamilyV2;
-            return TryConsumeAddressFamilyV2(ref sequenceReader, ref proxyProtocolHeader);
+            return TryConsumeAddressFamilyV2(ref sequenceReader, ref examined, ref proxyProtocolHeader);
         }
         ParserThrowHelper.ThrowInvalidProtocol();
         return false;
@@ -205,32 +206,35 @@ public struct ProxyProtocolParser
         return true;
     }
 
-    private bool TryConsumeAddressFamilyV2(ref SequenceReader<byte> sequenceReader, ref ProxyProtocolHeader proxyProtocolHeader)
+    private bool TryConsumeAddressFamilyV2(ref SequenceReader<byte> sequenceReader, ref SequencePosition? examined, ref ProxyProtocolHeader proxyProtocolHeader)
     {
-        int length = _proxyAddrLength + len_v2;
+        const int baseOffset = len_v2;
+
+        ushort proxyAddrLength = _proxyAddrLength;
+        int length = proxyAddrLength + baseOffset;
 
         byte fam = _raw_hdr.v2.fam;
         if (fam >= 0x00 && fam <= 0x02) // AF_UNSPEC
         {
-            if (!Discard(ref sequenceReader, length, baseOffset: len_v2))
+            if (!Discard(ref sequenceReader, length, baseOffset))
             {
                 return false;
             }
         }
         else
         {
-            if (!Consume(ref sequenceReader, length, baseOffset: len_v2, advancePast: true))
+            if (!Consume(ref sequenceReader, length, baseOffset, advancePast: true))
             {
                 return false;
             }
 
-            int tlvLength = _raw_hdr.v2.len + len_v2 - length;
+            int tlvLength = _raw_hdr.v2.len - proxyAddrLength;
             ParserUtility.Assert(tlvLength >= 0, "tlv length is negative");
 
             if (tlvLength > 0)
             {
                 _step = ParserStep.TlvV2;
-                return TryConsumeTypeLengthValueV2(ref sequenceReader, ref proxyProtocolHeader);
+                return TryConsumeTypeLengthValueV2(ref sequenceReader, ref examined, ref proxyProtocolHeader);
             }
         }
 
@@ -295,12 +299,68 @@ public struct ProxyProtocolParser
         return false;
     }
 
-    private static unsafe bool TryConsumeTypeLengthValueV2(ref SequenceReader<byte> sequenceReader, ref ProxyProtocolHeader proxyProtocolHeader)
+    private unsafe bool TryConsumeTypeLengthValueV2(ref SequenceReader<byte> sequenceReader, ref SequencePosition? examined, ref ProxyProtocolHeader proxyProtocolHeader)
     {
-        ParserThrowHelper.ThrowNotImplemented("PROXY V2: Reading TLVs not yet implemented.");
-        _ = sequenceReader;
-        _ = proxyProtocolHeader;
-        return false;
+        long remaining = sequenceReader.Remaining;
+        if (remaining == 0)
+        {
+            return false;
+        }
+
+        int tlvLength = _raw_hdr.v2.len - _proxyAddrLength;
+        ParserUtility.Assert(tlvLength > 0);
+
+        // make sure we can read TLVs all at once
+        if (remaining <= tlvLength)
+        {
+            SequenceReader<byte> copy = sequenceReader;
+            copy.AdvanceToEnd();
+            examined = copy.Position;
+            return false;
+        }
+
+        int bytesFilled = _bytesFilled + len_v2;
+        int remainingSpaceInHeader = sizeof(hdr) - bytesFilled;
+        ParserUtility.Assert(remainingSpaceInHeader >= 0);
+
+        if (tlvLength <= remainingSpaceInHeader)
+        {
+            Span<byte> tlv = MemoryMarshal.AsBytes(MemoryMarshal.CreateSpan(ref _raw_hdr, 1)).Slice(bytesFilled, tlvLength);
+            proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(tlv, tlvLength, ref sequenceReader);
+        }
+        else if (tlvLength <= TLV_STACKALLOC_THRESHOLD)
+        {
+            proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(default, tlvLength, ref sequenceReader);
+        }
+        else
+        {
+            byte[] array = ArrayPool<byte>.Shared.Rent(tlvLength);
+            try
+            {
+                Span<byte> tlv = array.AsSpan(0, tlvLength);
+                proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(tlv, tlvLength, ref sequenceReader);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(array);
+            }
+        }
+        _step = ParserStep.Done;
+        return true;
+    }
+
+    private unsafe ProxyProtocolHeader ConsumeTypeLengthValueFromSpanV2(Span<byte> tlv, int length, ref SequenceReader<byte> sequenceReader)
+    {
+        var span = tlv.IsEmpty ? stackalloc byte[length] : tlv;
+        if (!sequenceReader.TryCopyTo(span))
+        {
+            ParserThrowHelper.ThrowProxyFailedCopy(length);
+        }
+        sequenceReader.Advance(length);
+
+        // TODO: process span
+
+        return CreateProxyProtocolHeaderV2();
     }
 
     private ProxyProtocolHeader CreateProxyProtocolHeaderV2()

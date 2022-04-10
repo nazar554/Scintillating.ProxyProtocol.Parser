@@ -116,6 +116,42 @@ public class ProtocolV2CompleteValidDataParserTests
             new byte[] {
                 0x0d, 0x0a, 0x0d, 0x0a, 0x00, 0x0d, 0x0a, 0x51, 0x55, 0x49, 0x54, 0x0a,
                 0x21,
+                0x11,
+                0x00, 0xC0,
+                0x7F, 0x00, 0x00, 0x01, 0x7F, 0x00, 0x00, 0x01, 0x00, 0x2A, 0x05, 0x39,
+                0xFF, 0x00, 0xFF
+            }
+            .Concat(new byte[0xC0])
+            .ToArray(),
+            0xC0 + ProxyProtocolParser.len_v2,
+            ProxyCommand.Proxy,
+            AddressFamily.InterNetwork,
+            SocketType.Stream,
+            IPEndPoint.Parse("127.0.0.1:42"),
+            IPEndPoint.Parse("127.0.0.1:1337"),
+        };
+        yield return new object?[] {
+            new byte[] {
+                0x0d, 0x0a, 0x0d, 0x0a, 0x00, 0x0d, 0x0a, 0x51, 0x55, 0x49, 0x54, 0x0a,
+                0x21,
+                0x11,
+                0xFF, 0xFF,
+                0x7F, 0x00, 0x00, 0x01, 0x7F, 0x00, 0x00, 0x01, 0x00, 0x2A, 0x05, 0x39,
+                0xFF, 0x00, 0xFF
+            }
+            .Concat(new byte[ushort.MaxValue])
+            .ToArray(),
+            (long)ushort.MaxValue + ProxyProtocolParser.len_v2,
+            ProxyCommand.Proxy,
+            AddressFamily.InterNetwork,
+            SocketType.Stream,
+            IPEndPoint.Parse("127.0.0.1:42"),
+            IPEndPoint.Parse("127.0.0.1:1337"),
+        };
+        yield return new object?[] {
+            new byte[] {
+                0x0d, 0x0a, 0x0d, 0x0a, 0x00, 0x0d, 0x0a, 0x51, 0x55, 0x49, 0x54, 0x0a,
+                0x21,
                 0x22,
                 0x00, 0x24,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
