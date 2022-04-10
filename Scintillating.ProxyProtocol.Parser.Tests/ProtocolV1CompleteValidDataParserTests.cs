@@ -46,7 +46,7 @@ public class ProtocolV1CompleteValidDataParserTests
             proxyProtocolHeader!.Command
                 .Should().Be(ProxyCommand.Proxy, "there is a single command in protocol V1");
             proxyProtocolHeader!.Length
-                .Should().Be((ushort)offset, "entire header has to be consumed");
+                .Should().Be(offset, "entire header has to be consumed");
 
             proxyProtocolHeader!.AddressFamily
                 .Should().Be(addressFamily, "it should match the sample");

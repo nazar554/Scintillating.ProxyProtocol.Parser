@@ -134,7 +134,7 @@ public class ProtocolV2IncompleteParserTests
                         proxyProtocolHeader!.Command
                             .Should().Be(command, "command should match");
                         proxyProtocolHeader!.Length
-                            .Should().Be((ushort)expectedLength, "entire header has to be consumed");
+                            .Should().Be(expectedLength, "entire header has to be consumed");
 
                         proxyProtocolHeader!.AddressFamily
                             .Should().Be(addressFamily, "it should match the sample");

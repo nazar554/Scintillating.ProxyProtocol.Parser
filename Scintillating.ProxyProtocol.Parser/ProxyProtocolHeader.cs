@@ -17,7 +17,7 @@ namespace Scintillating.ProxyProtocol.Parser;
 public record ProxyProtocolHeader(
     ProxyVersion Version,
     ProxyCommand Command,
-    ushort Length,
+    int Length,
     AddressFamily AddressFamily,
     SocketType SocketType,
     EndPoint? Source,
@@ -38,7 +38,7 @@ public record ProxyProtocolHeader(
     /// <summary>
     /// The total length of PROXY protocol header.
     /// </summary>
-    public ushort Length { get; } = Length;
+    public int Length { get; } = Length >= 0 ? Length : throw new ArgumentOutOfRangeException(nameof(Length), nameof(Length) + " can't be a negative integer.");
 
     /// <summary>
     /// The address family of source and destination endpoint.

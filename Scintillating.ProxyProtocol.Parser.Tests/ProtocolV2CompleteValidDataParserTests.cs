@@ -47,7 +47,7 @@ public class ProtocolV2CompleteValidDataParserTests
             proxyProtocolHeader!.Command
                 .Should().Be(command, "command should be valid");
             proxyProtocolHeader!.Length
-                .Should().Be((ushort)offset, "entire header has to be consumed");
+                .Should().Be((int)offset, "entire header has to be consumed");
 
             proxyProtocolHeader!.AddressFamily
                 .Should().Be(addressFamily, "it should match the sample");
@@ -181,6 +181,21 @@ public class ProtocolV2CompleteValidDataParserTests
                 0xFF, 0x00, 0xFF
             },
             52,
+            ProxyCommand.Proxy,
+            AddressFamily.Unspecified,
+            SocketType.Unknown,
+            null
+        };
+        yield return new object?[] {
+            new byte[] {
+                0x0d, 0x0a, 0x0d, 0x0a, 0x00, 0x0d, 0x0a, 0x51, 0x55, 0x49, 0x54, 0x0a,
+                0x21,
+                0x00,
+                0xFF, 0xFF,
+            }
+            .Concat(new byte[ushort.MaxValue])
+            .ToArray(),
+            (long)ushort.MaxValue + ProxyProtocolParser.len_v2,
             ProxyCommand.Proxy,
             AddressFamily.Unspecified,
             SocketType.Unknown,
