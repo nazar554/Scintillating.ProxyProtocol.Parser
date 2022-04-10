@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Scintillating.ProxyProtocol.Parser;
@@ -12,6 +13,12 @@ namespace Scintillating.ProxyProtocol.Parser;
 internal static class ParserUtility
 {
     private static readonly UTF8Encoding _encoding = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
+    [Conditional("DEBUG")]
+    public static void Assert(bool condition, string? detailMessage = null, [CallerArgumentExpression(parameterName: "condition")] string? message = null)
+    {
+        Debug.Assert(condition, message, detailMessage);
+    }
 
     public static bool TryParsePortNumber(ReadOnlySpan<byte> source, out ushort port)
     {
@@ -25,9 +32,6 @@ internal static class ParserUtility
     public static bool StartsWith(ref SequenceReader<byte> sequenceReader, ReadOnlySpan<byte> span, bool advancePast = false)
     {
         long bytesRemaining = sequenceReader.Remaining;
-        Debug.Assert(bytesRemaining >= 0, nameof(bytesRemaining) + " is negative.");
-        Debug.Assert(span.Length >= 0, nameof(span.Length) + " is negative.");
-
         if (bytesRemaining < span.Length)
         {
             int length = (int)bytesRemaining;

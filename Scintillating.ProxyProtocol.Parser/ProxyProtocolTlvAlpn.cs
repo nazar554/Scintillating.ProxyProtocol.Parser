@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-
-namespace Scintillating.ProxyProtocol.Parser;
+﻿namespace Scintillating.ProxyProtocol.Parser;
 
 /// <summary>
 /// Application-Layer Protocol Negotiation (ALPN).
@@ -19,8 +17,9 @@ public class ProxyProtocolTlvAlpn : ProxyProtocolTlv
 
     private static ushort GetLength(ReadOnlyMemory<byte> applicationProtocol)
     {
+        ParserUtility.Assert(applicationProtocol.Length >= 0);
+
         int length = applicationProtocol.Length;
-        Debug.Assert(length >= 0, nameof(length) + " is negative.");
         if (length == 0)
         {
             ParserThrowHelper.ThrowZeroByteAlpn();
