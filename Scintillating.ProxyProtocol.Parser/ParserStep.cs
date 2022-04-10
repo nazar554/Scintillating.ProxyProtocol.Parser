@@ -7,6 +7,6 @@ internal enum ParserStep : sbyte
     PreambleV1,
     AddressFamilyV2,
     LocalV2,
-    TypeLengthValueV2,
+    TlvV2,
     Done,
 }

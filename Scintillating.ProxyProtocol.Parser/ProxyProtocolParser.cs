@@ -60,7 +60,7 @@ public struct ProxyProtocolParser
                 ParserStep.PreambleV1 => isNotEmpty && TryConsumePreambleV1(ref sequenceReader, ref value),
                 ParserStep.AddressFamilyV2 => isNotEmpty && TryConsumeAddressFamilyV2(ref sequenceReader, ref value),
                 ParserStep.LocalV2 => isNotEmpty && TryConsumeLocalV2(ref sequenceReader, ref value),
-                ParserStep.TypeLengthValueV2 => isNotEmpty && TryConsumeTypeLengthValueV2(ref sequenceReader, ref value),
+                ParserStep.TlvV2 => isNotEmpty && TryConsumeTypeLengthValueV2(ref sequenceReader, ref value),
                 _ => ThrowUnknownParserStep(step),
             };
         }
@@ -223,7 +223,7 @@ public struct ProxyProtocolParser
 
         if (tlvLength > 0)
         {
-            _step = ParserStep.TypeLengthValueV2;
+            _step = ParserStep.TlvV2;
             return TryConsumeTypeLengthValueV2(ref sequenceReader, ref proxyProtocolHeader);
         }
 

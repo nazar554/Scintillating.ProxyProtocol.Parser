@@ -59,6 +59,10 @@ internal static class ParserThrowHelper
         => throw new ProxyProtocolException("PROXY V2: Invalid length header.");
 
     [DoesNotReturn]
+    public static void ThrowZeroByteAlpn()
+        => throw new ProxyProtocolException("PROXY V2: ALPN should be a non-empty byte string.");
+
+    [DoesNotReturn]
     public static void ThrowUnixEndpointEmpty(string what)
        => throw new ProxyProtocolException("PROXY V2: UNIX endpoint " + what + " is empty");
 
@@ -77,6 +81,11 @@ internal static class ParserThrowHelper
     [DoesNotReturn]
     public static void ThrowProxyV2InvalidFam(byte fam)
         => _(CultureInfo.InvariantCulture, stackalloc char[64], $"PROXY V2: invalid fam value 0x{fam:x2}.");
+
+    [DoesNotReturn]
+    public static void ThrowProxyV2InvalidTlvType(byte type)
+      => _(CultureInfo.InvariantCulture, stackalloc char[64], $"PROXY V2: invalid tlv type 0x{type:x2}.");
+
 
     [DoesNotReturn]
     public static void ThrowProxyV1FailedCopy(int amountToCopy)

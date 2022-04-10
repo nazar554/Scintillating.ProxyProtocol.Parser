@@ -10,10 +10,10 @@ public readonly record struct ProxyProtocolAdvanceTo(SequencePosition Consumed, 
     /// <summary>
     /// Position up to which parser consumed the data.
     /// </summary>
-    public SequencePosition Consumed { get; init; } = Consumed;
+    public SequencePosition Consumed { get; } = Consumed;
 
     /// <summary>
     /// Position up to which parser looked ahead and left the data as-is.
     /// </summary>
-    public SequencePosition Examined { get; init; } = Examined;
+    public SequencePosition Examined { get; } = Examined;
 }

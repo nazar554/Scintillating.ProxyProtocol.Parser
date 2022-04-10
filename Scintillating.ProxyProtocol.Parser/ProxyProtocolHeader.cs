@@ -13,6 +13,7 @@ namespace Scintillating.ProxyProtocol.Parser;
 /// <param name="SocketType">The parsed socket type.</param>
 /// <param name="Source">The source address.</param>
 /// <param name="Destination">The destination address.</param>
+/// <param name="TypeLengthValues">The collection of type length values.</param>
 public record ProxyProtocolHeader(
     ProxyVersion Version,
     ProxyCommand Command,
@@ -20,41 +21,47 @@ public record ProxyProtocolHeader(
     AddressFamily AddressFamily,
     SocketType SocketType,
     EndPoint? Source,
-    EndPoint? Destination
+    EndPoint? Destination,
+    IReadOnlyList<ProxyProtocolTlv>? TypeLengthValues = null
 )
 {
     /// <summary>
     /// The PROXY protocol version.
     /// </summary>
-    public ProxyVersion Version { get; init; } = Version;
+    public ProxyVersion Version { get; } = Version;
 
     /// <summary>
     /// The command specified in PROXY protocol header.
     /// </summary>
-    public ProxyCommand Command { get; init; } = Command;
+    public ProxyCommand Command { get; } = Command;
 
     /// <summary>
     /// The total length of PROXY protocol header.
     /// </summary>
-    public ushort Length { get; init; } = Length;
+    public ushort Length { get; } = Length;
 
     /// <summary>
     /// The address family of source and destination endpoint.
     /// </summary>
-    public AddressFamily AddressFamily { get; init; } = AddressFamily;
+    public AddressFamily AddressFamily { get; } = AddressFamily;
 
     /// <summary>
     /// The parsed socket type.
     /// </summary>
-    public SocketType SocketType { get; init; } = SocketType;
+    public SocketType SocketType { get; } = SocketType;
 
     /// <summary>
     /// The source address.
     /// </summary>
-    public EndPoint? Source { get; init; } = Source;
+    public EndPoint? Source { get; } = Source;
 
     /// <summary>
     /// The destination address.
     /// </summary>
-    public EndPoint? Destination { get; init; } = Destination;
+    public EndPoint? Destination { get; } = Destination;
+
+    /// <summary>
+    /// The collection of type length values.
+    /// </summary>
+    public IReadOnlyList<ProxyProtocolTlv> TypeLengthValues { get; } = TypeLengthValues ?? Array.Empty<ProxyProtocolTlv>();
 }
