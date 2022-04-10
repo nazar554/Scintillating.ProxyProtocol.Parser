@@ -1,4 +1,4 @@
-﻿namespace Scintillating.ProxyProtocol.Parser;
+﻿namespace Scintillating.ProxyProtocol.Parser.Tlv;
 
 /// <summary>
 /// TLV is reserved for application-specific data and will be never used by the PROXY Protocol.

@@ -1,4 +1,5 @@
 ﻿using Scintillating.ProxyProtocol.Parser.raw;
+using Scintillating.ProxyProtocol.Parser.Tlv;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
@@ -357,9 +358,6 @@ public struct ProxyProtocolParser
         {
             ParserThrowHelper.ThrowProxyFailedCopy(tlvLength);
         }
-        sequenceReader.Advance(tlvLength);
-
-        // TODO: process span
 
         ReadOnlyCollectionBuilder<ProxyProtocolTlv>? builder = null;
         int index = 0;
@@ -391,9 +389,11 @@ public struct ProxyProtocolParser
             index = newIndex;
         }
 
-        return CreateProxyProtocolHeaderV2(
+        var result = CreateProxyProtocolHeaderV2(
             builder?.Count > 0 ? builder.ToReadOnlyCollection() : null
         );
+        sequenceReader.Advance(tlvLength);
+        return result;
     }
 
     private ProxyProtocolTlv? BuildTlv(byte type, Span<byte> value)
@@ -404,11 +404,11 @@ public struct ProxyProtocolParser
             PP2_TYPE_NOOP => null,
 
             PP2_TYPE_ALPN => value.IsEmpty ? ThrowProxyV2AlpnEmpty() : new ProxyProtocolTlvAlpn(value.ToArray()),
-            PP2_TYPE_AUTHORITY => throw new NotImplementedException(),
+            PP2_TYPE_AUTHORITY => ParserUtility.ParseAuthority(value),
             PP2_TYPE_CRC32C => throw new NotImplementedException(),
-            PP2_TYPE_UNIQUE_ID => throw new NotImplementedException(),
+            PP2_TYPE_UNIQUE_ID => ParserUtility.ParseUniqueId(value),
             PP2_TYPE_SSL => throw new NotImplementedException(),
-            PP2_TYPE_NETNS => throw new NotImplementedException(),
+            PP2_TYPE_NETNS => ParserUtility.ParseNetNamespace(value),
 
             >= PP2_TYPE_MIN_CUSTOM and <= PP2_TYPE_MAX_CUSTOM => new ProxyProtocolTlvCustom(ptype, value.ToArray()),
             >= PP2_TYPE_MIN_EXPERIMENT and <= PP2_TYPE_MAX_EXPERIMENT => new ProxyProtocolTlvExperiment(ptype, value.ToArray()),

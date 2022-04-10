@@ -1,4 +1,4 @@
-﻿namespace Scintillating.ProxyProtocol.Parser;
+﻿namespace Scintillating.ProxyProtocol.Parser.Tlv;
 
 /// <summary>
 /// Application-Layer Protocol Negotiation (ALPN).

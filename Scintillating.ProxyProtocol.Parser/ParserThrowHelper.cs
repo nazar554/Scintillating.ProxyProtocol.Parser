@@ -59,6 +59,10 @@ internal static class ParserThrowHelper
         => throw new ProxyProtocolException("PROXY V2: Invalid length header.");
 
     [DoesNotReturn]
+    public static void ThrowInvalidUniqueId()
+      => throw new ProxyProtocolException("PROXY V2: Unique ID is too big.");
+
+    [DoesNotReturn]
     public static void ThrowZeroByteAlpn()
         => throw new ProxyProtocolException("PROXY V2: ALPN should be a non-empty byte string.");
 

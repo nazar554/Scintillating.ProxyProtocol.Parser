@@ -1,4 +1,4 @@
-﻿namespace Scintillating.ProxyProtocol.Parser;
+﻿namespace Scintillating.ProxyProtocol.Parser.Tlv;
 
 /// <summary>
 /// TLV is reserved for temporary experimental use by application developers and protocol designers

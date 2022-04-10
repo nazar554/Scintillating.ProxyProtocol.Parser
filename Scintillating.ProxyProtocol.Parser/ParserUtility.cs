@@ -1,4 +1,5 @@
-﻿using System.Buffers;
+﻿using Scintillating.ProxyProtocol.Parser.Tlv;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Buffers.Text;
 using System.Diagnostics;
@@ -13,11 +14,62 @@ namespace Scintillating.ProxyProtocol.Parser;
 internal static class ParserUtility
 {
     private static readonly UTF8Encoding _encoding = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+    private static readonly Encoding _asciiEncoding = Encoding.GetEncoding(Encoding.ASCII.WebName, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
 
     [Conditional("DEBUG")]
     public static void Assert(bool condition, string? detailMessage = null, [CallerArgumentExpression(parameterName: "condition")] string? message = null)
     {
         Debug.Assert(condition, message, detailMessage);
+    }
+
+    public static ProxyProtocolTlv ParseAuthority(Span<byte> value)
+    {
+        if (value.IsEmpty)
+        {
+            return new ProxyProtocolTlvAuthority(string.Empty, 0);
+        }
+
+        string authority;
+        try
+        {
+            authority = _encoding.GetString(value);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new ProxyProtocolException("PROXY V2: invalid UTF-8 bytes in authority TLV.", ex);
+        }
+
+        return new ProxyProtocolTlvAuthority(authority, value.Length);
+    }
+
+    public static ProxyProtocolTlv ParseNetNamespace(Span<byte> value)
+    {
+        if (value.IsEmpty)
+        {
+            return new ProxyProtocolTlvNetNamespace(string.Empty);
+        }
+
+        string @namespace;
+        try
+        {
+            @namespace = _asciiEncoding.GetString(value);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new ProxyProtocolException("PROXY V2: invalid US-ASCII bytes in namespace TLV.", ex);
+        }
+
+        return new ProxyProtocolTlvNetNamespace(@namespace);
+    }
+
+    public static ProxyProtocolTlv ParseUniqueId(Span<byte> value)
+    {
+        if (value.Length >= ProxyProtocolTlvUniqueID.MaxLength)
+        {
+            ParserThrowHelper.ThrowInvalidUniqueId();
+        }
+
+        return new ProxyProtocolTlvUniqueID(value.ToArray());
     }
 
     public static bool TryParsePortNumber(ReadOnlySpan<byte> source, out ushort port)
