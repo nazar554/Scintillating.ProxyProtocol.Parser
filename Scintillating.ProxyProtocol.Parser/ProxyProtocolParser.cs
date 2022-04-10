@@ -164,16 +164,16 @@ public struct ProxyProtocolParser
         }
         else if (cmd == 0x01)
         {
-            ushort proxyAddrLength = fam switch
+            int proxyAddrLength = fam switch
             {
                 // AF_UNSPEC
                 >= 0x00 and <= 0x02 => len,
                 // TCPv4 / UDPv4
-                >= 0x10 and <= 0x12 => ip4.size,
+                >= 0x10 and <= 0x12 => sizeof(ip4),
                 // TCPv6 / UDPv6
-                >= 0x20 and <= 0x22 => ip6.size,
+                >= 0x20 and <= 0x22 => sizeof(ip6),
                 // UNIX stream / datagram
-                >= 0x30 and <= 0x32 => unix.size,
+                >= 0x30 and <= 0x32 => sizeof(unix),
                 _ => ThrowProxyV2InvalidFam(fam),
             };
             if (len < proxyAddrLength)
@@ -237,7 +237,7 @@ public struct ProxyProtocolParser
         int crlfOffset = _bytesFilled;
         Debug.Assert(crlfOffset >= 1, nameof(crlfOffset) + " is smaller than 1");
 
-        bool isComplete = Consume(ref sequenceReader, hdr_v1.size, advancePast: false);
+        bool isComplete = Consume(ref sequenceReader, sizeof(hdr_v1), advancePast: false);
 
         int bytesFilled = _bytesFilled;
         Debug.Assert(bytesFilled >= 0, nameof(bytesFilled) + " is negative.");
@@ -453,7 +453,7 @@ public struct ProxyProtocolParser
 
     private static unsafe (EndPoint? source, EndPoint? destination) MapUnix(ushort len, ref unix unix)
     {
-        if (len < unix.size)
+        if (len < sizeof(unix))
         {
             ParserThrowHelper.ThrowUnixAddressToShort();
         }

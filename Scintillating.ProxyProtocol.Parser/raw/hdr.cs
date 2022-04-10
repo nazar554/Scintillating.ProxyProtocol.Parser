@@ -5,14 +5,9 @@ namespace Scintillating.ProxyProtocol.Parser.raw;
 /// <summary>
 /// The PROXY protocol header
 /// </summary>
-[StructLayout(LayoutKind.Explicit, Size = size)]
+[StructLayout(LayoutKind.Explicit)]
 internal unsafe struct hdr
 {
-    /// <summary>
-    /// Size of this union
-    /// </summary>
-    public const int size = hdr_v2.size;
-
     /// <summary>
     /// Human-readable header format (Version 1)
     /// </summary>

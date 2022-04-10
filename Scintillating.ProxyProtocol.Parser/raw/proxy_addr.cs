@@ -2,11 +2,9 @@
 
 namespace Scintillating.ProxyProtocol.Parser.raw;
 
-[StructLayout(LayoutKind.Explicit, Size = size)]
+[StructLayout(LayoutKind.Explicit)]
 internal struct proxy_addr
 {
-    public const int size = unix.size;
-
     [FieldOffset(0)]
     public ip4 ip4;
 
