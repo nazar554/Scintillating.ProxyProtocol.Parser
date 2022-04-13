@@ -328,11 +328,11 @@ public struct ProxyProtocolParser
         if (tlvLength <= remainingSpaceInHeader)
         {
             Span<byte> tlv = MemoryMarshal.AsBytes(MemoryMarshal.CreateSpan(ref _raw_hdr, 1)).Slice(bytesFilled, tlvLength);
-            proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(tlv, tlvLength, ref sequenceReader);
+            proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(tlvLength, ref sequenceReader, tlv);
         }
         else if (tlvLength <= TLV_STACKALLOC_THRESHOLD)
         {
-            proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(default, tlvLength, ref sequenceReader);
+            proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(tlvLength, ref sequenceReader);
         }
         else
         {
@@ -340,7 +340,7 @@ public struct ProxyProtocolParser
             try
             {
                 Span<byte> tlv = array.AsSpan(0, tlvLength);
-                proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(tlv, tlvLength, ref sequenceReader);
+                proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(tlvLength, ref sequenceReader, tlv);
             }
             finally
             {
@@ -351,7 +351,7 @@ public struct ProxyProtocolParser
         return true;
     }
 
-    private unsafe ProxyProtocolHeader ConsumeTypeLengthValueFromSpanV2(Span<byte> tlv, int tlvLength, ref SequenceReader<byte> sequenceReader)
+    private unsafe ProxyProtocolHeader ConsumeTypeLengthValueFromSpanV2(int tlvLength, ref SequenceReader<byte> sequenceReader, Span<byte> tlv = default)
     {
         var span = tlv.IsEmpty ? stackalloc byte[tlvLength] : tlv;
         if (!sequenceReader.TryCopyTo(span))
@@ -407,7 +407,7 @@ public struct ProxyProtocolParser
             PP2_TYPE_AUTHORITY => ParserUtility.ParseAuthority(value),
             PP2_TYPE_CRC32C => throw new NotImplementedException(),
             PP2_TYPE_UNIQUE_ID => ParserUtility.ParseUniqueId(value),
-            PP2_TYPE_SSL => throw new NotImplementedException(),
+            PP2_TYPE_SSL => BuildSSLTlv(value),
             PP2_TYPE_NETNS => ParserUtility.ParseNetNamespace(value),
 
             >= PP2_TYPE_MIN_CUSTOM and <= PP2_TYPE_MAX_CUSTOM => new ProxyProtocolTlvCustom(ptype, value.ToArray()),
@@ -417,6 +417,11 @@ public struct ProxyProtocolParser
             >= PP2_TYPE_MIN_FUTURE and <= PP2_TYPE_MAX_FUTURE => ThrowProxyV2InvalidTlvType(type, "reserved for future"),
             _ => ThrowProxyV2InvalidTlvType(type, "unrecognized type"),
         };
+    }
+
+    private static ProxyProtocolTlv BuildSSLTlv(Span<byte> value)
+    {
+        throw new NotImplementedException();
     }
 
     private ProxyProtocolHeader CreateProxyProtocolHeaderV2(IReadOnlyList<ProxyProtocolTlv>? typeLengthValues = null)
