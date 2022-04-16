@@ -21,12 +21,12 @@ internal sealed partial class Crc32C : HashAlgorithm
 
     protected override void HashCore(byte[] array, int ibStart, int cbSize)
     {
-        _crc = HashReflected(_crc, array, ibStart, cbSize);
+        _crc = ComputeHash(_crc, array, ibStart, cbSize);
     }
 
     protected override void HashCore(ReadOnlySpan<byte> source)
     {
-        _crc = HashReflected(_crc, source);
+        _crc = ComputeHash(_crc, source);
     }
 
     protected override byte[] HashFinal() => BitConverter.GetBytes(~_crc);
@@ -49,41 +49,57 @@ internal sealed partial class Crc32C : HashAlgorithm
         _crc = uint.MaxValue;
     }
 
-    public static uint HashReflected(uint crc, ReadOnlySpan<byte> source)
+    public static uint ComputeHash(uint crc, ReadOnlySpan<byte> source)
     {
-        return HashReflected(crc, ref MemoryMarshal.GetReference(source), (nuint)source.Length);
+        if (source.IsEmpty)
+        {
+            return crc;
+        }
+
+        return ComputeHashImplSpan(crc, source);
     }
 
-    public static uint HashReflected(uint crc, byte[] array, int offset, int length)
-    {
-        return HashReflected(crc, ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(array), offset), (nuint)length);
-    }
-
-    public static uint HashReflected(uint crc, ref byte data, nuint length)
+    public static uint ComputeHash(uint crc, byte[] array, int offset, int length)
     {
         if (length == 0)
         {
             return crc;
         }
 
-        if (Sse42.X64.IsSupported)
-        {
-            return HashCoreImplSse42x64(crc, ref data, length);
-        }
+        return ComputeHashImplSpan(crc, new ReadOnlySpan<byte>(array, offset, length));
+    }
 
+    private static uint ComputeHashImplSpan(uint crc, ReadOnlySpan<byte> source)
+    {
+        unsafe
+        {
+            fixed (byte* ptr = &MemoryMarshal.GetReference(source))
+            {
+                return ComputeHash(crc, ptr, (nuint)source.Length);
+            }
+        }
+    }
+
+    public static unsafe uint ComputeHash(uint crc, byte* buffer, nuint length)
+    {
+        if (length == 0)
+        {
+            return crc;
+        }
+        
         if (Sse42.IsSupported)
         {
-            return HashCoreImplSse42(crc, ref data, length);
+            return Crc32Sse42.ComputeHash(crc, buffer, length);
         }
 
         if (Crc32.Arm64.IsSupported)
         {
-            return HashCoreImplAarch64(crc, ref data, length);
+            // return HashCoreImplAarch64(crc, ref data, length);
         }
 
         if (Crc32.IsSupported)
         {
-            return HashCoreImplAarch32(crc, ref data, length);
+            // return HashCoreImplAarch32(crc, ref data, length);
         }
 
         return ThrowSoftwareFallbackNotImplemented();
