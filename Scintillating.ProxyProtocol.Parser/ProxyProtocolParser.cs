@@ -172,7 +172,7 @@ public struct ProxyProtocolParser
                 // TCPv6 / UDPv6
                 >= 0x20 and <= 0x22 => sizeof(ip6),
                 // UNIX stream / datagram
-                >= 0x30 and <= 0x32 => sizeof(unix),
+                >= 0x30 and <= 0x32 => SizeOfUnix(len),
                 _ => ThrowProxyV2InvalidFam(fam),
             };
 
@@ -187,6 +187,16 @@ public struct ProxyProtocolParser
         }
         ParserThrowHelper.ThrowInvalidProtocol();
         return false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static unsafe int SizeOfUnix(ushort len)
+    {
+        if (len < sizeof(unix))
+        {
+            ParserThrowHelper.ThrowUnixAddressToShort();
+        }
+        return sizeof(unix);
     }
 
     private bool TryConsumeLocalV2(ref SequenceReader<byte> sequenceReader, ref ProxyProtocolHeader proxyProtocolHeader)
@@ -242,7 +252,7 @@ public struct ProxyProtocolParser
             }
         }
 
-        proxyProtocolHeader = CreateProxyProtocolHeaderV2();
+        proxyProtocolHeader = CreateProxyProtocolHeaderV2(length);
         _step = ParserStep.Done;
         return true;
     }
@@ -311,7 +321,9 @@ public struct ProxyProtocolParser
             return false;
         }
 
-        int tlvLength = _raw_hdr.v2.len - _proxyAddrLength;
+
+        ushort len = _raw_hdr.v2.len;
+        int tlvLength = len - _proxyAddrLength;
         ParserUtility.Assert(tlvLength > 0);
 
         // make sure we can read TLVs all at once
@@ -324,48 +336,83 @@ public struct ProxyProtocolParser
         }
 
         int bytesFilled = _bytesFilled + len_v2;
-        int remainingSpaceInHeader = sizeof(hdr) - bytesFilled;
-        ParserUtility.Assert(remainingSpaceInHeader >= 0);
+        int totalLength = bytesFilled + tlvLength;
 
-        if (tlvLength <= remainingSpaceInHeader)
+        try
         {
-            Span<byte> tlv = MemoryMarshal.AsBytes(MemoryMarshal.CreateSpan(ref _raw_hdr, 1)).Slice(bytesFilled, tlvLength);
-            proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(tlvLength, ref sequenceReader, tlv);
-        }
-        else if (tlvLength <= TLV_STACKALLOC_THRESHOLD)
-        {
-            proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(tlvLength, ref sequenceReader);
-        }
-        else
-        {
-            byte[] array = ArrayPool<byte>.Shared.Rent(tlvLength);
-            try
+            if (BitConverter.IsLittleEndian)
             {
-                Span<byte> tlv = array.AsSpan(0, tlvLength);
-                proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(tlvLength, ref sequenceReader, tlv);
+                _raw_hdr.v2.len = BinaryPrimitives.ReverseEndianness(len);
             }
-            finally
+
+            if (totalLength <= sizeof(hdr))
             {
-                ArrayPool<byte>.Shared.Return(array);
+                proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(
+                    tlvLength, 
+                    in sequenceReader,
+                    span: MemoryMarshal.AsBytes(MemoryMarshal.CreateSpan(ref _raw_hdr, 1))[..totalLength]
+                );
+            }
+            else if (totalLength <= TLV_STACKALLOC_THRESHOLD)
+            {
+                proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(
+                    tlvLength, in sequenceReader, 
+                    span: CopyFilledHeaderPart(stackalloc byte[totalLength], bytesFilled)
+                );
+            }
+            else
+            {
+                byte[] array = ArrayPool<byte>.Shared.Rent(totalLength);
+                try
+                {
+                    proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(
+                        tlvLength,
+                        in sequenceReader,
+                        span: CopyFilledHeaderPart(array.AsSpan(0, totalLength), bytesFilled)
+                    );
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(array);
+                }
             }
         }
+        finally
+        {
+            if (BitConverter.IsLittleEndian)
+            {
+                _raw_hdr.v2.len = len;
+            }
+        }
+
+        sequenceReader.Advance(tlvLength);
         _step = ParserStep.Done;
         return true;
     }
 
-    private unsafe ProxyProtocolHeader ConsumeTypeLengthValueFromSpanV2(int tlvLength, ref SequenceReader<byte> sequenceReader, Span<byte> tlv = default)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Span<byte> CopyFilledHeaderPart(Span<byte> destination, int bytesFilled)
     {
-        var span = tlv.IsEmpty ? stackalloc byte[tlvLength] : tlv;
-        if (!sequenceReader.TryCopyTo(span))
+        MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref _raw_hdr, 1))[..bytesFilled]
+            .CopyTo(destination);
+        return destination;
+    }
+
+    private unsafe ProxyProtocolHeader ConsumeTypeLengthValueFromSpanV2(int tlvLength, in SequenceReader<byte> sequenceReader, Span<byte> span)
+    {
+        int totalLength = span.Length;
+        ParserUtility.Assert(totalLength > tlvLength);
+        int index = totalLength - tlvLength;
+
+        if (!sequenceReader.TryCopyTo(span[index..]))
         {
             ParserThrowHelper.ThrowProxyFailedCopy(tlvLength);
         }
 
         ReadOnlyCollectionBuilder<ProxyProtocolTlv>? builder = null;
-        int index = 0;
-        while (index < tlvLength)
+        while (index < totalLength)
         {
-            if (tlvLength - index < 3)
+            if (totalLength - index < 3)
             {
                 ParserThrowHelper.ThrowInvalidLength();
             }
@@ -374,7 +421,7 @@ public struct ProxyProtocolParser
             ParserUtility.Assert(length >= 0);
 
             int newIndex = index + length + 3;
-            if (newIndex > tlvLength)
+            if (newIndex > totalLength)
             {
                 ParserThrowHelper.ThrowInvalidLength();
             }
@@ -388,14 +435,19 @@ public struct ProxyProtocolParser
             index = newIndex;
         }
 
+        if (index != totalLength)
+        {
+            ParserThrowHelper.ThrowInvalidLength();
+        }
+
         var result = CreateProxyProtocolHeaderV2(
+            totalLength,
             builder?.Count > 0 ? builder.ToReadOnlyCollection() : null
         );
-        sequenceReader.Advance(tlvLength);
         return result;
     }
 
-    private ProxyProtocolTlv? BuildTlv(byte type, Span<byte> value, Span<byte> tlv)
+    private ProxyProtocolTlv? BuildTlv(byte type, Span<byte> value, Span<byte> span)
     {
         var ptype = (ProxyProtocolTlvType)type;
         return ptype switch
@@ -404,7 +456,7 @@ public struct ProxyProtocolParser
 
             PP2_TYPE_ALPN => value.IsEmpty ? ThrowProxyV2AlpnEmpty() : new ProxyProtocolTlvAlpn(value.ToArray()),
             PP2_TYPE_AUTHORITY => ParserUtility.ParseAuthority(value),
-            PP2_TYPE_CRC32C => ValidateCrc32C(value, tlv),
+            PP2_TYPE_CRC32C => ValidateCrc32C(value, span),
             PP2_TYPE_UNIQUE_ID => ParserUtility.ParseUniqueId(value),
             PP2_TYPE_SSL => ParserUtility.ParseSslTlv(value),
             PP2_TYPE_NETNS => ParserUtility.ParseNetNamespace(value),
@@ -418,7 +470,7 @@ public struct ProxyProtocolParser
         };
     }
 
-    private unsafe ProxyProtocolTlv? ValidateCrc32C(Span<byte> value, Span<byte> tlv)
+    private unsafe ProxyProtocolTlv? ValidateCrc32C(Span<byte> value, Span<byte> span)
     {
         const int HashLengthBytes = Crc32C.Hasher.SizeBits / 8;
 
@@ -426,82 +478,57 @@ public struct ProxyProtocolParser
         {
             ParserThrowHelper.ThrowInvalidLength();
         }
-        uint expected = BinaryPrimitives.ReadUInt32BigEndian(value);
+        Span<byte> copy = stackalloc byte[HashLengthBytes];
+        value.CopyTo(copy);
         value.Clear();
 
-        var hasher = new Crc32C.Hasher();
-        int bytesFilled = _bytesFilled + len_v2;
-        int remainingSpaceInHeader = sizeof(hdr) - bytesFilled;
-        int tlvLength = tlv.Length;
-
-        ushort len = _raw_hdr.v2.len;
-        if (BitConverter.IsLittleEndian)
-        {
-            _raw_hdr.v2.len = BinaryPrimitives.ReverseEndianness(len);
-        }
         try
         {
-            
-
-            if (tlvLength <= remainingSpaceInHeader)
-            {
-                var bytes = MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref _raw_hdr.v2, 1))[..(bytesFilled + tlvLength)];
-                hasher.HashCore(bytes);
-            }
-            else
-            {
-                var header = MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref _raw_hdr.v2, 1))[..bytesFilled];
-                hasher.HashCore(header);
-                hasher.HashCore(tlv);
-            }
-
-            uint actual = hasher.HashFinalValue;
+            uint actual = Crc32C.Hasher.ComputeHash(span);
+            uint expected = BinaryPrimitives.ReadUInt32BigEndian(copy);
             if (actual != expected)
             {
                 ParserThrowHelper.ThrowInvalidChecksum();
             }
-
-            return new ProxyProtocolTlvCRC32C(BitConverter.GetBytes(actual));
         }
         finally
         {
-            if (BitConverter.IsLittleEndian)
-            {
-                _raw_hdr.v2.len = len;
-            }
+            copy.CopyTo(value);
         }
+
+        return new ProxyProtocolTlvCRC32C(value.ToArray());
     }
 
-    private ProxyProtocolHeader CreateProxyProtocolHeaderV2(IReadOnlyList<ProxyProtocolTlv>? typeLengthValues = null)
+    private ProxyProtocolHeader CreateProxyProtocolHeaderV2(int length, IReadOnlyList<ProxyProtocolTlv>? typeLengthValues = null)
     {
         byte fam = _raw_hdr.v2.fam;
 
         return fam switch
         {
-            0x00 => CreateProxyProtocolHeaderV2(AF_UNSPEC, SocketType.Unknown, typeLengthValues: typeLengthValues),
-            0x10 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetwork, SocketType.Unknown, MapIPv4(), typeLengthValues: typeLengthValues),
-            0x20 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetworkV6, SocketType.Unknown, MapIPv6(), typeLengthValues: typeLengthValues),
-            0x30 => CreateProxyProtocolHeaderV2(AddressFamily.Unix, SocketType.Unknown, MapUnix(), typeLengthValues: typeLengthValues),
+            0x00 => CreateProxyProtocolHeaderV2(length, AF_UNSPEC, SocketType.Unknown, typeLengthValues: typeLengthValues),
+            0x10 => CreateProxyProtocolHeaderV2(length, AddressFamily.InterNetwork, SocketType.Unknown, MapIPv4(), typeLengthValues: typeLengthValues),
+            0x20 => CreateProxyProtocolHeaderV2(length, AddressFamily.InterNetworkV6, SocketType.Unknown, MapIPv6(), typeLengthValues: typeLengthValues),
+            0x30 => CreateProxyProtocolHeaderV2(length, AddressFamily.Unix, SocketType.Unknown, MapUnix(), typeLengthValues: typeLengthValues),
 
-            0x01 => CreateProxyProtocolHeaderV2(AF_UNSPEC, SocketType.Stream, typeLengthValues: typeLengthValues),
-            0x11 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetwork, SocketType.Stream, MapIPv4(), typeLengthValues: typeLengthValues),
-            0x21 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetworkV6, SocketType.Stream, MapIPv6(), typeLengthValues: typeLengthValues),
-            0x31 => CreateProxyProtocolHeaderV2(AddressFamily.Unix, SocketType.Stream, MapUnix(), typeLengthValues: typeLengthValues),
+            0x01 => CreateProxyProtocolHeaderV2(length, AF_UNSPEC, SocketType.Stream, typeLengthValues: typeLengthValues),
+            0x11 => CreateProxyProtocolHeaderV2(length, AddressFamily.InterNetwork, SocketType.Stream, MapIPv4(), typeLengthValues: typeLengthValues),
+            0x21 => CreateProxyProtocolHeaderV2(length, AddressFamily.InterNetworkV6, SocketType.Stream, MapIPv6(), typeLengthValues: typeLengthValues),
+            0x31 => CreateProxyProtocolHeaderV2(length, AddressFamily.Unix, SocketType.Stream, MapUnix(), typeLengthValues: typeLengthValues),
 
-            0x02 => CreateProxyProtocolHeaderV2(AF_UNSPEC, SocketType.Dgram, typeLengthValues: typeLengthValues),
-            0x12 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetwork, SocketType.Dgram, MapIPv4(), typeLengthValues: typeLengthValues),
-            0x22 => CreateProxyProtocolHeaderV2(AddressFamily.InterNetworkV6, SocketType.Dgram, MapIPv6(), typeLengthValues: typeLengthValues),
-            0x32 => CreateProxyProtocolHeaderV2(AddressFamily.Unix, SocketType.Dgram, MapUnix(), typeLengthValues: typeLengthValues),
+            0x02 => CreateProxyProtocolHeaderV2(length, AF_UNSPEC, SocketType.Dgram, typeLengthValues: typeLengthValues),
+            0x12 => CreateProxyProtocolHeaderV2(length, AddressFamily.InterNetwork, SocketType.Dgram, MapIPv4(), typeLengthValues: typeLengthValues),
+            0x22 => CreateProxyProtocolHeaderV2(length, AddressFamily.InterNetworkV6, SocketType.Dgram, MapIPv6(), typeLengthValues: typeLengthValues),
+            0x32 => CreateProxyProtocolHeaderV2(length, AddressFamily.Unix, SocketType.Dgram, MapUnix(), typeLengthValues: typeLengthValues),
             _ => ThrowProxyV2InvalidSocketTypeFam(fam),
         };
     }
 
-    private ProxyProtocolHeader CreateProxyProtocolHeaderV2(AddressFamily addressFamily, SocketType socketType,
+    private static ProxyProtocolHeader CreateProxyProtocolHeaderV2(int length, AddressFamily addressFamily, SocketType socketType,
        (EndPoint? source, EndPoint? destination) endpoints = default,
        IReadOnlyList<ProxyProtocolTlv>? typeLengthValues = null
     )
     {
-        return new(ProxyVersion.V2, ProxyCommand.Proxy, _raw_hdr.v2.len + len_v2,
+        return new(ProxyVersion.V2, ProxyCommand.Proxy, length,
             addressFamily, socketType, endpoints.source, endpoints.destination,
             typeLengthValues
         );
@@ -632,10 +659,6 @@ public struct ProxyProtocolParser
     private unsafe (EndPoint? source, EndPoint? destination) MapUnix()
     {
         ref hdr_v2 v2 = ref _raw_hdr.v2;
-        if (v2.len < sizeof(unix))
-        {
-            ParserThrowHelper.ThrowUnixAddressToShort();
-        }
         ref unix unix = ref v2.proxy_addr.unix;
 
         var src_addr = MemoryMarshal.CreateReadOnlySpan(ref unix.src_addr[0], unix.addr_len);

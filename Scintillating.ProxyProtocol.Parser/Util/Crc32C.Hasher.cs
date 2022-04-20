@@ -48,6 +48,36 @@ internal sealed partial class Crc32C
             }
         }
 
+        public static unsafe uint ComputeHash(byte* buffer, nuint length)
+        {
+            uint crc = uint.MaxValue;
+            if (length == 0)
+            {
+                return crc;
+            }
+            return ~GetHashValue(ComputeHash(crc, buffer, length));
+        }
+
+        public static unsafe uint ComputeHash(ReadOnlySpan<byte> source)
+        {
+            uint crc = uint.MaxValue;
+            if (source.IsEmpty)
+            {
+                return crc;
+            }
+            return ~GetHashValue(ComputeHash(crc, source));
+        }
+
+        public static unsafe uint ComputeHash(byte[] array, int ibStart, int cbSize)
+        {
+            uint crc = uint.MaxValue;
+            if (cbSize == 0)
+            {
+                return crc;
+            }
+            return ~GetHashValue(ComputeHash(crc, new ReadOnlySpan<byte>(array, ibStart, cbSize)));
+        }
+
         private static unsafe uint ComputeHash(uint crc, byte* buffer, nuint length)
         {
             if (Sse42.IsSupported)
@@ -79,30 +109,30 @@ internal sealed partial class Crc32C
 
         private static unsafe uint ComputeHashFallback(uint crc, byte* buffer, nuint length) => pg_crc32c_sb8.pg_comp_crc32c_sb8(crc, buffer, length);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static uint GetHashValue(uint crc)
+        {
+            if (Sse42.IsSupported)
+            {
+                return crc;
+            }
+
+            if (Crc32.IsSupported)
+            {
+                return crc;
+            }
+
+            if (BitConverter.IsLittleEndian)
+            {
+                return crc;
+            }
+
+            return BinaryPrimitives.ReverseEndianness(crc);
+        }
+
         public readonly uint HashFinalValue => ~HashValue;
 
-        public readonly uint HashValue
-        {
-            get
-            {
-                if (Sse42.IsSupported)
-                {
-                    return _crc;
-                }
-
-                if (Crc32.IsSupported)
-                {
-                    return _crc;
-                }
-
-                if (BitConverter.IsLittleEndian)
-                {
-                    return _crc;
-                }
-
-                return BinaryPrimitives.ReverseEndianness(_crc);
-            }
-        }
+        public readonly uint HashValue => GetHashValue(_crc);
 
         public readonly byte[] HashFinal() => BitConverter.GetBytes(HashFinalValue);
 
