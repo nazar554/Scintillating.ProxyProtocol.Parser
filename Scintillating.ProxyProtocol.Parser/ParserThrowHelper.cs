@@ -59,6 +59,10 @@ internal static class ParserThrowHelper
         => throw new ProxyProtocolException("PROXY V2: Invalid length header.");
 
     [DoesNotReturn]
+    public static void ThrowInvalidChecksum()
+        => throw new ProxyProtocolException("PROXY V2: Invalid CRC-32C checksum.");
+
+    [DoesNotReturn]
     public static void ThrowInvalidUniqueId()
       => throw new ProxyProtocolException("PROXY V2: Unique ID is too big.");
 

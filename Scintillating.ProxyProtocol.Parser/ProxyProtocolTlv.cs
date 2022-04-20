@@ -10,17 +10,6 @@ public abstract class ProxyProtocolTlv
     /// </summary>
     /// <param name="type">Type of the value.</param>
     /// <param name="length">Length of the value.</param>
-    protected ProxyProtocolTlv(ProxyProtocolTlvType type, ushort length)
-    {
-        Type = type;
-        Length = length;
-    }
-
-    /// <summary>
-    /// Construct an instance of <see cref="ProxyProtocolTlv"/>.
-    /// </summary>
-    /// <param name="type">Type of the value.</param>
-    /// <param name="length">Length of the value.</param>
     protected ProxyProtocolTlv(ProxyProtocolTlvType type, int length)
     {
         Type = type;

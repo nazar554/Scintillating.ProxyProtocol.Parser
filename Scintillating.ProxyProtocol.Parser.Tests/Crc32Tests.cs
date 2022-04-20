@@ -100,15 +100,17 @@ public class Crc32Tests
     [InlineData(0x2714e10e7d722c61UL, 0x6a9b09f6u)]
     [InlineData(0xc0d3261addfc6908UL, 0x420242c1u)]
     [InlineData(0xd1567c3181d3a1bfUL, 0xfd562dc3u)]
-    public void ShouldWorkBasicCorrectness(ulong input, uint expected)
+    public void ShouldWorkBasicCorrectness(ulong input, uint expectedReflectedHash)
     {
         Func<uint> action = () =>
         {
             Span<byte> buffer = stackalloc byte[sizeof(ulong)];
             BinaryPrimitives.WriteUInt64LittleEndian(buffer, input);
-            return Crc32C.ComputeHash(uint.MaxValue, buffer);
+            var hasher = new Crc32C.Hasher();
+            hasher.HashCore(buffer);
+            return hasher.HashValue;
         };
         var actual = action.Should().NotThrow().Subject;
-        actual.Should().Be(expected);
+        actual.Should().Be(expectedReflectedHash);
     }
 }

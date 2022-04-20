@@ -32,7 +32,7 @@ using Sse42 = System.Runtime.Intrinsics.X86.Sse42;
 
 namespace Scintillating.ProxyProtocol.Parser.Util;
 
-internal static class Crc32Sse42
+internal static class crc32_sse42
 {
     // CRC-32C (iSCSI) polynomial in reversed bit order.
     private const uint POLY = 0x82f63b78;
@@ -150,34 +150,18 @@ internal static class Crc32Sse42
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static unsafe uint ComputeHash(uint crc, byte* buffer, nuint length)
+    public static unsafe uint sse42_crc32c(uint crc, byte* buffer, nuint length)
     {
         if (Sse42.X64.IsSupported)
         {
-            return sse42_crc32c_x64(crc, buffer, length);
+            return sse42_crc32c_x86_64(crc, buffer, length);
         }
 
-        ValidateIsSupported();
-
-        return sse42_crc32c(crc, buffer, length);
+        return sse42_crc32c_x86(crc, buffer, length);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ValidateIsSupported()
-    {
-        if (Environment.Is64BitProcess)
-        {
-            throw new InvalidOperationException("Attempted to use " + nameof(sse42_crc32c) + " in a 64-bit process.");
-        }
-
-        if (!Sse42.IsSupported)
-        {
-            throw new InvalidOperationException("Attempted to use " + nameof(sse42_crc32c) + " without SSE4.2 support.");
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static unsafe uint sse42_crc32c_x64(uint crc, byte* buf, nuint len)
+    private static unsafe uint sse42_crc32c_x86_64(uint crc, byte* buf, nuint len)
     {
         const nuint align = 8;
 
@@ -265,7 +249,7 @@ internal static class Crc32Sse42
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static unsafe uint sse42_crc32c(uint crc, byte* buf, nuint len)
+    private static unsafe uint sse42_crc32c_x86(uint crc, byte* buf, nuint len)
     {
         const nuint align = 4;
 

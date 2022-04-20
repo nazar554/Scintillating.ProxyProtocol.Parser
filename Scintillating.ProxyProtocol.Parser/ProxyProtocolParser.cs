@@ -1,6 +1,8 @@
 ﻿using Scintillating.ProxyProtocol.Parser.raw;
 using Scintillating.ProxyProtocol.Parser.Tlv;
+using Scintillating.ProxyProtocol.Parser.Util;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
@@ -367,11 +369,8 @@ public struct ProxyProtocolParser
             {
                 ParserThrowHelper.ThrowInvalidLength();
             }
-            byte type = tlv[index];
-            byte length_hi = tlv[index+1];
-            byte length_lo = tlv[index+2];
-
-            int length = length_lo | (length_hi << 8);
+            byte type = span[index];
+            int length = BinaryPrimitives.ReadUInt16BigEndian(span.Slice(index + 1, 2));
             ParserUtility.Assert(length >= 0);
 
             int newIndex = index + length + 3;
@@ -379,9 +378,9 @@ public struct ProxyProtocolParser
             {
                 ParserThrowHelper.ThrowInvalidLength();
             }
-            Span<byte> value = tlv.Slice(index + 3, length);
+            Span<byte> value = span.Slice(index + 3, length);
 
-            var item = BuildTlv(type, value);
+            var item = BuildTlv(type, value, span);
             if (item is not null)
             {
                 (builder ??= new()).Add(item);
@@ -396,7 +395,7 @@ public struct ProxyProtocolParser
         return result;
     }
 
-    private ProxyProtocolTlv? BuildTlv(byte type, Span<byte> value)
+    private ProxyProtocolTlv? BuildTlv(byte type, Span<byte> value, Span<byte> tlv)
     {
         var ptype = (ProxyProtocolTlvType)type;
         return ptype switch
@@ -405,9 +404,9 @@ public struct ProxyProtocolParser
 
             PP2_TYPE_ALPN => value.IsEmpty ? ThrowProxyV2AlpnEmpty() : new ProxyProtocolTlvAlpn(value.ToArray()),
             PP2_TYPE_AUTHORITY => ParserUtility.ParseAuthority(value),
-            PP2_TYPE_CRC32C => throw new NotImplementedException(),
+            PP2_TYPE_CRC32C => ValidateCrc32C(value, tlv),
             PP2_TYPE_UNIQUE_ID => ParserUtility.ParseUniqueId(value),
-            PP2_TYPE_SSL => BuildSSLTlv(value),
+            PP2_TYPE_SSL => ParserUtility.ParseSslTlv(value),
             PP2_TYPE_NETNS => ParserUtility.ParseNetNamespace(value),
 
             >= PP2_TYPE_MIN_CUSTOM and <= PP2_TYPE_MAX_CUSTOM => new ProxyProtocolTlvCustom(ptype, value.ToArray()),
@@ -419,9 +418,58 @@ public struct ProxyProtocolParser
         };
     }
 
-    private static ProxyProtocolTlv BuildSSLTlv(Span<byte> value)
+    private unsafe ProxyProtocolTlv? ValidateCrc32C(Span<byte> value, Span<byte> tlv)
     {
-        throw new NotImplementedException();
+        const int HashLengthBytes = Crc32C.Hasher.SizeBits / 8;
+
+        if (value.Length != HashLengthBytes)
+        {
+            ParserThrowHelper.ThrowInvalidLength();
+        }
+        uint expected = BinaryPrimitives.ReadUInt32BigEndian(value);
+        value.Clear();
+
+        var hasher = new Crc32C.Hasher();
+        int bytesFilled = _bytesFilled + len_v2;
+        int remainingSpaceInHeader = sizeof(hdr) - bytesFilled;
+        int tlvLength = tlv.Length;
+
+        ushort len = _raw_hdr.v2.len;
+        if (BitConverter.IsLittleEndian)
+        {
+            _raw_hdr.v2.len = BinaryPrimitives.ReverseEndianness(len);
+        }
+        try
+        {
+            
+
+            if (tlvLength <= remainingSpaceInHeader)
+            {
+                var bytes = MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref _raw_hdr.v2, 1))[..(bytesFilled + tlvLength)];
+                hasher.HashCore(bytes);
+            }
+            else
+            {
+                var header = MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref _raw_hdr.v2, 1))[..bytesFilled];
+                hasher.HashCore(header);
+                hasher.HashCore(tlv);
+            }
+
+            uint actual = hasher.HashFinalValue;
+            if (actual != expected)
+            {
+                ParserThrowHelper.ThrowInvalidChecksum();
+            }
+
+            return new ProxyProtocolTlvCRC32C(BitConverter.GetBytes(actual));
+        }
+        finally
+        {
+            if (BitConverter.IsLittleEndian)
+            {
+                _raw_hdr.v2.len = len;
+            }
+        }
     }
 
     private ProxyProtocolHeader CreateProxyProtocolHeaderV2(IReadOnlyList<ProxyProtocolTlv>? typeLengthValues = null)

@@ -17,16 +17,28 @@ internal static class ParserUtility
     private static readonly Encoding _asciiEncoding = Encoding.GetEncoding(Encoding.ASCII.WebName, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
 
     [Conditional("DEBUG")]
-    public static void Assert(bool condition, string? detailMessage = null, [CallerArgumentExpression(parameterName: "condition")] string? message = null)
+    public static void Assert(bool condition, 
+        string? detailMessage = null, 
+        [CallerArgumentExpression(parameterName: "condition")] string? message = null,
+        [CallerFilePath]string? filePath = null,
+        [CallerLineNumber] int lineNumber = default,
+        [CallerMemberName] string? memberName = null
+    )
     {
-        Debug.Assert(condition, message, detailMessage);
+        Debug.Assert(condition, $"{message} at {memberName} ({filePath}:{lineNumber})", detailMessage);
     }
 
     public static ProxyProtocolTlv ParseAuthority(Span<byte> value)
     {
-        if (value.IsEmpty)
+        Assert(value.Length >= 0);
+        int length = value.Length;
+        if (length == 0)
         {
             return new ProxyProtocolTlvAuthority(string.Empty, 0);
+        }
+        else if (length >= ProxyProtocolTlvAuthority.MaxLength)
+        {
+            throw new ProxyProtocolException("PROXY V2: authority TLV is too long.");
         }
 
         string authority;
@@ -42,8 +54,15 @@ internal static class ParserUtility
         return new ProxyProtocolTlvAuthority(authority, value.Length);
     }
 
+    public static ProxyProtocolTlv ParseSslTlv(Span<byte> value)
+    {
+        _ = value;
+        throw new ProxyProtocolException("PROXY V2: parsing SSL TLV's is not yet implemented.");
+    }
+
     public static ProxyProtocolTlv ParseNetNamespace(Span<byte> value)
     {
+        Assert(value.Length >= 0);
         if (value.IsEmpty)
         {
             return new ProxyProtocolTlvNetNamespace(string.Empty);
