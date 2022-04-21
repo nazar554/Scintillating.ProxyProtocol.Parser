@@ -490,13 +490,12 @@ public struct ProxyProtocolParser
             {
                 ParserThrowHelper.ThrowInvalidChecksum();
             }
+            return new ProxyProtocolTlvCRC32C(actual);
         }
         finally
         {
             copy.CopyTo(value);
         }
-
-        return new ProxyProtocolTlvCRC32C(value.ToArray());
     }
 
     private ProxyProtocolHeader CreateProxyProtocolHeaderV2(int length, IReadOnlyList<ProxyProtocolTlv>? typeLengthValues = null)

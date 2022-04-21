@@ -4,11 +4,11 @@ using System.Net.Sockets;
 namespace Scintillating.ProxyProtocol.Parser;
 
 /// <summary>
-/// Describes the data parsed from PROXY protocol header.
+/// Describes the data parsed from the PROXY protocol header.
 /// </summary>
 /// <param name="Version">The PROXY protocol version.</param>
-/// <param name="Command">The command specified in PROXY protocol header.</param>
-/// <param name="Length">The total length of PROXY protocol header.</param>
+/// <param name="Command">The command specified in the PROXY protocol header.</param>
+/// <param name="Length">The total length of the PROXY protocol header.</param>
 /// <param name="AddressFamily">The address family of source and destination endpoint.</param>
 /// <param name="SocketType">The parsed socket type.</param>
 /// <param name="Source">The source address.</param>
@@ -31,12 +31,12 @@ public record ProxyProtocolHeader(
     public ProxyVersion Version { get; } = Version;
 
     /// <summary>
-    /// The command specified in PROXY protocol header.
+    /// The command specified in the PROXY protocol header.
     /// </summary>
     public ProxyCommand Command { get; } = Command;
 
     /// <summary>
-    /// The total length of PROXY protocol header.
+    /// The total length of the PROXY protocol header.
     /// </summary>
     public int Length { get; } = Length >= 0 ? Length : throw new ArgumentOutOfRangeException(nameof(Length), nameof(Length) + " can't be a negative integer.");
 

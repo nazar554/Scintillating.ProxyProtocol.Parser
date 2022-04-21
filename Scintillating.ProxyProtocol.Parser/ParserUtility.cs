@@ -34,7 +34,7 @@ internal static class ParserUtility
         int length = value.Length;
         if (length == 0)
         {
-            return new ProxyProtocolTlvAuthority(string.Empty, 0);
+            throw new ProxyProtocolException("PROXY V2: Authority should be a non-empty string.");
         }
         else if (length >= ProxyProtocolTlvAuthority.MaxLength)
         {

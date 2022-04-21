@@ -1,8 +1,6 @@
 ﻿using FluentAssertions;
 using Scintillating.ProxyProtocol.Parser.Util;
 using System.Buffers.Binary;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Xunit;
 
 namespace Scintillating.ProxyProtocol.Parser.Tests;
@@ -17,7 +15,7 @@ public class Crc32Tests
     {
         Func<byte[]> action = () => _crc32c.ComputeHash(payload);
         var actual = action.Should().NotThrow().Subject;
-        actual.Should().Equal(expected);
+        actual.Should().Equal(expected.Reverse());
     }
 
     public static IEnumerable<object[]> RfcExamples()

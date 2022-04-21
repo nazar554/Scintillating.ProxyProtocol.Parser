@@ -28,7 +28,7 @@ internal sealed partial class Crc32C
         {
             if (length != 0)
             {
-                _crc = ComputeHash(_crc, buffer, length);
+                _crc = ComputeHashIntrinsic(_crc, buffer, length);
             }
         }
 
@@ -36,17 +36,11 @@ internal sealed partial class Crc32C
         {
             if (!source.IsEmpty)
             {
-                _crc = ComputeHash(_crc, source);
+                _crc = ComputeHashImpl(_crc, source);
             }
         }
 
-        public void HashCore(byte[] array, int ibStart, int cbSize)
-        {
-            if (cbSize != 0)
-            {
-                _crc = ComputeHash(_crc, new ReadOnlySpan<byte>(array, ibStart, cbSize));
-            }
-        }
+        public void HashCore(byte[] array, int ibStart, int cbSize) => HashCore(new ReadOnlySpan<byte>(array, ibStart, cbSize));
 
         public static unsafe uint ComputeHash(byte* buffer, nuint length)
         {
@@ -55,7 +49,7 @@ internal sealed partial class Crc32C
             {
                 return crc;
             }
-            return ~GetHashValue(ComputeHash(crc, buffer, length));
+            return ~GetHashValue(ComputeHashIntrinsic(crc, buffer, length));
         }
 
         public static unsafe uint ComputeHash(ReadOnlySpan<byte> source)
@@ -65,20 +59,12 @@ internal sealed partial class Crc32C
             {
                 return crc;
             }
-            return ~GetHashValue(ComputeHash(crc, source));
+            return ~GetHashValue(ComputeHashImpl(crc, source));
         }
 
-        public static unsafe uint ComputeHash(byte[] array, int ibStart, int cbSize)
-        {
-            uint crc = uint.MaxValue;
-            if (cbSize == 0)
-            {
-                return crc;
-            }
-            return ~GetHashValue(ComputeHash(crc, new ReadOnlySpan<byte>(array, ibStart, cbSize)));
-        }
+        public static unsafe uint ComputeHash(byte[] array, int ibStart, int cbSize) => ComputeHash(new ReadOnlySpan<byte>(array, ibStart, cbSize));
 
-        private static unsafe uint ComputeHash(uint crc, byte* buffer, nuint length)
+        private static unsafe uint ComputeHashIntrinsic(uint crc, byte* buffer, nuint length)
         {
             if (Sse42.IsSupported)
             {
@@ -92,13 +78,13 @@ internal sealed partial class Crc32C
             return ComputeHashFallback(crc, buffer, length);
         }
 
-        private static uint ComputeHash(uint crc, ReadOnlySpan<byte> source)
+        private static uint ComputeHashImpl(uint crc, ReadOnlySpan<byte> source)
         {
             unsafe
             {
                 fixed (byte* ptr = &MemoryMarshal.GetReference(source))
                 {
-                    return ComputeHash(crc, ptr, (nuint)source.Length);
+                    return ComputeHashIntrinsic(crc, ptr, (nuint)source.Length);
                 }
             }
         }
@@ -134,19 +120,18 @@ internal sealed partial class Crc32C
 
         public readonly uint HashValue => GetHashValue(_crc);
 
-        public readonly byte[] HashFinal() => BitConverter.GetBytes(HashFinalValue);
+        public readonly byte[] HashFinal()
+        {
+            var destination = new byte[sizeof(uint)];
+            BinaryPrimitives.WriteUInt32BigEndian(destination, HashFinalValue);
+            return destination;
+        }
 
         public readonly bool TryHashFinal(Span<byte> destination, out int bytesWritten)
         {
-            if (destination.Length < sizeof(uint))
-            {
-                bytesWritten = 0;
-                return false;
-            }
-
-            Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(destination), HashFinalValue);
-            bytesWritten = sizeof(uint);
-            return true;
+            bool success = BinaryPrimitives.TryWriteUInt32BigEndian(destination, HashFinalValue);
+            bytesWritten = success ? sizeof(uint) : 0;
+            return success;
         }
 
         public void Initialize()

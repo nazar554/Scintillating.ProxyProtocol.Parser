@@ -5,6 +5,7 @@ namespace Scintillating.ProxyProtocol.Parser.Util;
 internal sealed partial class Crc32C : HashAlgorithm
 {
     private Hasher _hasher;
+    public const int HashSizeBits = Hasher.SizeBits;
 
     public Crc32C()
     {

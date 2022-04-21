@@ -16,7 +16,7 @@ public class ProxyProtocolTlvAuthority : ProxyProtocolTlv
     /// <param name="value">The authority value.</param>
     /// <param name="length">Length of UTF-8 encoded authority value.</param>
     public ProxyProtocolTlvAuthority(string value, int length)
-        : base(ProxyProtocolTlvType.PP2_TYPE_AUTHORITY, length)
+        : base(ProxyProtocolTlvType.PP2_TYPE_AUTHORITY, length > 0 ? length : throw new ProxyProtocolException("PROXY V2: Authority should be a non-empty string."))
     {
         ArgumentNullException.ThrowIfNull(value);
         Value = value;

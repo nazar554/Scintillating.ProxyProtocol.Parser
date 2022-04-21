@@ -1,4 +1,6 @@
-﻿namespace Scintillating.ProxyProtocol.Parser.Tlv;
+﻿using System.Net.Security;
+
+namespace Scintillating.ProxyProtocol.Parser.Tlv;
 
 /// <summary>
 /// Application-Layer Protocol Negotiation (ALPN).
@@ -9,16 +11,14 @@ public class ProxyProtocolTlvAlpn : ProxyProtocolTlv
     /// Constructs a new instance of <see cref="ProxyProtocolTlvAlpn"/> class.
     /// </summary>
     /// <param name="applicationProtocol"> The ALPN value.</param>
-    public ProxyProtocolTlvAlpn(ReadOnlyMemory<byte> applicationProtocol)
+    public ProxyProtocolTlvAlpn(byte[] applicationProtocol)
         : base(ProxyProtocolTlvType.PP2_TYPE_ALPN, GetLength(applicationProtocol))
     {
-        Value = applicationProtocol;
+        Value = new SslApplicationProtocol(applicationProtocol);
     }
 
-    private static int GetLength(ReadOnlyMemory<byte> applicationProtocol)
+    private static int GetLength(byte[] applicationProtocol)
     {
-        ParserUtility.Assert(applicationProtocol.Length >= 0);
-
         int length = applicationProtocol.Length;
         if (length == 0)
         {
@@ -30,5 +30,5 @@ public class ProxyProtocolTlvAlpn : ProxyProtocolTlv
     /// <summary>
     /// The ALPN value.
     /// </summary>
-    public ReadOnlyMemory<byte> Value { get; }
+    public SslApplicationProtocol Value { get; }
 }

@@ -10,7 +10,7 @@ public class ProxyProtocolTlvNetNamespace : ProxyProtocolTlv
     /// </summary>
     /// <param name="value">The namespace's name.</param>
     public ProxyProtocolTlvNetNamespace(string value)
-        : base(ProxyProtocolTlvType.PP2_TYPE_NETNS, value.Length)
+        : base(ProxyProtocolTlvType.PP2_TYPE_NETNS, value is not null ? value.Length : throw new ArgumentNullException(nameof(value)))
     {
         Value = value;
     }

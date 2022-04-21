@@ -8,27 +8,16 @@ public class ProxyProtocolTlvCRC32C : ProxyProtocolTlv
     /// <summary>
     /// Constructs a new instance of <see cref="ProxyProtocolTlvCRC32C"/> class.
     /// </summary>
-    /// <param name="value">The CRC32c checksum of the PROXY protocol header, network byte order.</param>
-    public ProxyProtocolTlvCRC32C(ReadOnlyMemory<byte> value)
-        : base(ProxyProtocolTlvType.PP2_TYPE_CRC32C, GetLength(value))
+    /// <param name="value">The CRC32c checksum of the PROXY protocol header.</param>
+    public ProxyProtocolTlvCRC32C(uint value)
+        : base(ProxyProtocolTlvType.PP2_TYPE_CRC32C, Util.Crc32C.Hasher.SizeBits / 8)
     {
         Value = value;
     }
 
-    private static int GetLength(ReadOnlyMemory<byte> value)
-    {
-        ParserUtility.Assert(value.Length >= 0);
-
-        int length = value.Length;
-        if (length != 4)
-        {
-            ParserThrowHelper.ThrowInvalidChecksum();
-        }
-        return length;
-    }
 
     /// <summary>
-    /// The CRC32c checksum of the PROXY protocol header, network byte order.
+    /// The CRC32c checksum of the PROXY protocol header.
     /// </summary>
-    public ReadOnlyMemory<byte> Value { get; }
+    public uint Value { get; }
 }
