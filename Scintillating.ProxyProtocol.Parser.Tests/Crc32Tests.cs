@@ -1,6 +1,9 @@
 ﻿using FluentAssertions;
+using Scintillating.ProxyProtocol.Parser.Tests.Infrastructure;
 using Scintillating.ProxyProtocol.Parser.Util;
+using System.Buffers;
 using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using Xunit;
 
 namespace Scintillating.ProxyProtocol.Parser.Tests;
@@ -15,6 +18,17 @@ public class Crc32Tests
     {
         Func<byte[]> action = () => _crc32c.ComputeHash(payload);
         var actual = action.Should().NotThrow().Subject;
+        actual.Should().Equal(expected.Reverse());
+    }
+
+    [Theory]
+    [MemberData(nameof(RfcExamples))]
+    public void ShouldWorkWithRfcSpanExamples(byte[] payload, byte[] expected)
+    {
+        byte[] actual = new byte[expected.Length];
+        bool success = _crc32c.TryComputeHash(payload, actual, out int bytesWritten);
+        success.Should().BeTrue();
+        bytesWritten.Should().Be(expected.Length);
         actual.Should().Equal(expected.Reverse());
     }
 
@@ -110,5 +124,101 @@ public class Crc32Tests
         };
         var actual = action.Should().NotThrow().Subject;
         actual.Should().Be(expectedReflectedHash);
+
+        if (System.Runtime.Intrinsics.Arm.Crc32.IsSupported)
+        {
+            Func<uint> arm = () =>
+            {
+                Span<byte> span = stackalloc byte[sizeof(ulong)];
+                BinaryPrimitives.WriteUInt64LittleEndian(span, input);
+
+                unsafe
+                {
+                    fixed (byte* buffer = &MemoryMarshal.GetReference(span))
+                    {
+                        return pg_crc32c_armv8.pg_comp_crc32c_armv8(uint.MaxValue, buffer, sizeof(ulong));
+                    }
+                }
+            };
+            actual = arm.Should().NotThrow().Subject;
+            actual.Should().Be(expectedReflectedHash);
+        }
+
+        Func<uint> fallback = () =>
+        {
+            Span<byte> span = stackalloc byte[sizeof(ulong)];
+            BinaryPrimitives.WriteUInt64LittleEndian(span, input);
+
+            unsafe
+            {
+                fixed (byte* buffer = &MemoryMarshal.GetReference(span))
+                {
+                    uint value = pg_crc32c_sb8.pg_comp_crc32c_sb8(uint.MaxValue, buffer, sizeof(ulong));
+                    return BitConverter.IsLittleEndian ? value : BinaryPrimitives.ReverseEndianness(value);
+                }
+            }
+        };
+        actual = fallback.Should().NotThrow().Subject;
+        actual.Should().Be(expectedReflectedHash);
+    }
+
+    [Fact]
+    public void ShouldWorkFallbackOddAddress()
+    {
+        const int OddOffset = 3;
+
+        Span<byte> span = stackalloc byte[OddOffset + sizeof(ulong)];
+        BinaryPrimitives.WriteUInt64LittleEndian(span.Slice(OddOffset), 0x9bc138abae315de2UL);
+
+        unsafe
+        {
+            fixed (byte* buffer = &MemoryMarshal.GetReference(span))
+            {
+                uint value = pg_crc32c_sb8.pg_comp_crc32c_sb8(uint.MaxValue, buffer + OddOffset, sizeof(ulong));
+                uint actual = BitConverter.IsLittleEndian ? value : BinaryPrimitives.ReverseEndianness(value);
+
+                actual.Should().Be(0x894d5d2cu);
+            }
+        }
+    }
+
+    [IntrinsicsFact(typeof(System.Runtime.Intrinsics.X86.Sse42))]
+
+    public void ShouldWorkX86OddAddress()
+    {
+        const int OddOffset = 3;
+
+        Span<byte> span = stackalloc byte[OddOffset + sizeof(ulong)];
+        BinaryPrimitives.WriteUInt64LittleEndian(span.Slice(OddOffset), 0x9bc138abae315de2UL);
+
+        unsafe
+        {
+            fixed (byte* buffer = &MemoryMarshal.GetReference(span))
+            {
+                uint actual = crc32_sse42.sse42_crc32c(uint.MaxValue, buffer + OddOffset, sizeof(ulong));
+
+                actual.Should().Be(0x894d5d2cu);
+            }
+        }
+    }
+
+    [IntrinsicsFact(typeof(System.Runtime.Intrinsics.Arm.Crc32))]
+
+    public void ShouldWorkArmV8OddAddress()
+    {
+        const int OddOffset = 3;
+
+        Span<byte> span = stackalloc byte[OddOffset + sizeof(ulong)];
+        BinaryPrimitives.WriteUInt64LittleEndian(span.Slice(OddOffset), 0x9bc138abae315de2UL);
+
+        unsafe
+        {
+            fixed (byte* buffer = &MemoryMarshal.GetReference(span))
+            {
+                uint actual = pg_crc32c_armv8.pg_comp_crc32c_armv8(uint.MaxValue, buffer + OddOffset, sizeof(ulong));
+
+                actual.Should().Be(0x894d5d2cu);
+            }
+        }
     }
 }

@@ -26,12 +26,14 @@
  * madler@alumni.caltech.edu
  */
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Sse42 = System.Runtime.Intrinsics.X86.Sse42;
 
 namespace Scintillating.ProxyProtocol.Parser.Util;
 
+[ExcludeFromCodeCoverage(Justification = "SSE4.2 CRC32C is machine dependent.")]
 internal static class crc32_sse42
 {
     // CRC-32C (iSCSI) polynomial in reversed bit order.

@@ -16,6 +16,7 @@
  *-------------------------------------------------------------------------
  */
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Crc32 = System.Runtime.Intrinsics.Arm.Crc32;
 using pg_crc32c = System.UInt32;
@@ -25,6 +26,7 @@ using uint64 = System.UInt64;
 
 namespace Scintillating.ProxyProtocol.Parser.Util
 {
+    [ExcludeFromCodeCoverage(Justification = "ARMv8 CRC32C is machine dependent.")]
     internal static class pg_crc32c_armv8
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

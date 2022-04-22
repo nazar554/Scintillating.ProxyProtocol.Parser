@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Crc32 = System.Runtime.Intrinsics.Arm.Crc32;
@@ -64,6 +65,7 @@ internal sealed partial class Crc32C
 
         public static unsafe uint ComputeHash(byte[] array, int ibStart, int cbSize) => ComputeHash(new ReadOnlySpan<byte>(array, ibStart, cbSize));
 
+        [ExcludeFromCodeCoverage(Justification = "Intrinsics dispatch is machine dependent.")]
         private static unsafe uint ComputeHashIntrinsic(uint crc, byte* buffer, nuint length)
         {
             if (Sse42.IsSupported)
@@ -89,12 +91,16 @@ internal sealed partial class Crc32C
             }
         }
 
+        [ExcludeFromCodeCoverage(Justification = "Intrinsics dispatch is machine dependent.")]
         private static unsafe uint ComputeHashSse42(uint crc, byte* buffer, nuint length) => crc32_sse42.sse42_crc32c(crc, buffer, length);
 
+        [ExcludeFromCodeCoverage(Justification = "Intrinsics dispatch is machine dependent.")]
         private static unsafe uint ComputeHashArmV8(uint crc, byte* buffer, nuint length) => pg_crc32c_armv8.pg_comp_crc32c_armv8(crc, buffer, length);
 
+        [ExcludeFromCodeCoverage(Justification = "Intrinsics dispatch is machine dependent.")]
         private static unsafe uint ComputeHashFallback(uint crc, byte* buffer, nuint length) => pg_crc32c_sb8.pg_comp_crc32c_sb8(crc, buffer, length);
 
+        [ExcludeFromCodeCoverage(Justification = "Intrinsics dispatch is machine dependent.")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static uint GetHashValue(uint crc)
         {

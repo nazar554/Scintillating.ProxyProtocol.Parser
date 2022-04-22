@@ -20,6 +20,7 @@
  *-------------------------------------------------------------------------
  */
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using pg_crc32c = System.UInt32;
@@ -30,6 +31,7 @@ using uint8 = System.Byte;
 
 namespace Scintillating.ProxyProtocol.Parser.Util
 {
+    [ExcludeFromCodeCoverage(Justification = nameof(BitConverter.IsLittleEndian) + " is machine dependent.")]
     internal static class pg_crc32c_sb8
     {
         private const int TABLE_SIZE = 256;
