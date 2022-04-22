@@ -5,7 +5,7 @@ namespace Scintillating.ProxyProtocol.Parser.Tlv;
 /// <summary>
 /// Application-Layer Protocol Negotiation (ALPN).
 /// </summary>
-public class ProxyProtocolTlvAlpn : ProxyProtocolTlv
+public class ProxyProtocolTlvAlpn : ProxyProtocolTlv, IEquatable<ProxyProtocolTlvAlpn?>
 {
     /// <summary>
     /// Constructs a new instance of <see cref="ProxyProtocolTlvAlpn"/> class.
@@ -27,8 +27,38 @@ public class ProxyProtocolTlvAlpn : ProxyProtocolTlv
         return length;
     }
 
+    /// <inheritdoc/>
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as ProxyProtocolTlvAlpn);
+    }
+
+    /// <inheritdoc/>
+    public bool Equals(ProxyProtocolTlvAlpn? other)
+    {
+        return other is not null && Value.Equals(other.Value);
+    }
+
+    /// <inheritdoc/>
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Type, Length, Value);
+    }
+
     /// <summary>
     /// The ALPN value.
     /// </summary>
     public SslApplicationProtocol Value { get; }
+
+    /// <inheritdoc/>
+    public static bool operator ==(ProxyProtocolTlvAlpn? left, ProxyProtocolTlvAlpn? right)
+    {
+        return EqualityComparer<ProxyProtocolTlvAlpn>.Default.Equals(left, right);
+    }
+
+    /// <inheritdoc/>
+    public static bool operator !=(ProxyProtocolTlvAlpn? left, ProxyProtocolTlvAlpn? right)
+    {
+        return !(left == right);
+    }
 }

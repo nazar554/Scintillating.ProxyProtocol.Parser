@@ -67,6 +67,10 @@ internal static class ParserThrowHelper
       => throw new ProxyProtocolException("PROXY V2: Unique ID is too big.");
 
     [DoesNotReturn]
+    public static void ThrowTooShortSSLTLV()
+     => throw new ProxyProtocolException("PROXY V2: SSL TLV is too short.");
+
+    [DoesNotReturn]
     public static void ThrowZeroByteAlpn()
         => throw new ProxyProtocolException("PROXY V2: ALPN should be a non-empty byte string.");
 
@@ -89,6 +93,10 @@ internal static class ParserThrowHelper
     [DoesNotReturn]
     public static void ThrowProxyV2InvalidFam(byte fam)
         => _(CultureInfo.InvariantCulture, stackalloc char[64], $"PROXY V2: invalid fam value 0x{fam:x2}.");
+
+    [DoesNotReturn]
+    public static void ThrowProxyV2InvalidSslFlags(byte flags)
+    => _(CultureInfo.InvariantCulture, stackalloc char[64], $"PROXY V2: invalid SSL flags value 0x{flags:x2}.");
 
     [DoesNotReturn]
     public static void ThrowProxyV2InvalidTlvType(byte type, string why)

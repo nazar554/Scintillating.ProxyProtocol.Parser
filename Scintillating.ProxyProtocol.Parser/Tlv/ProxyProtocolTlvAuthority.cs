@@ -3,7 +3,7 @@
 /// <summary>
 /// TLV contains the host name value passed by the client, as an UTF8-encoded string.
 /// </summary>
-public class ProxyProtocolTlvAuthority : ProxyProtocolTlv
+public class ProxyProtocolTlvAuthority : ProxyProtocolTlv, IEquatable<ProxyProtocolTlvAuthority?>
 {
     /// <summary>
     /// Maximum length of the authority field.
@@ -26,4 +26,34 @@ public class ProxyProtocolTlvAuthority : ProxyProtocolTlv
     /// The authority value.
     /// </summary>
     public string Value { get; }
+    
+    /// <inheritdoc/>
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as ProxyProtocolTlvAuthority);
+    }
+
+    /// <inheritdoc/>
+    public bool Equals(ProxyProtocolTlvAuthority? other)
+    {
+        return other is not null && Value == other.Value;
+    }
+
+    /// <inheritdoc/>
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Value);
+    }
+
+    /// <inheritdoc/>
+    public static bool operator ==(ProxyProtocolTlvAuthority? left, ProxyProtocolTlvAuthority? right)
+    {
+        return EqualityComparer<ProxyProtocolTlvAuthority>.Default.Equals(left, right);
+    }
+
+    /// <inheritdoc/>
+    public static bool operator !=(ProxyProtocolTlvAuthority? left, ProxyProtocolTlvAuthority? right)
+    {
+        return !(left == right);
+    }
 }

@@ -30,8 +30,8 @@ public struct ProxyProtocolParser
     // "PROXY \r\n".Length = sizeof("PROXY") + sizeof((byte)' ') + sizeof("\r\n") = 8
     internal const int len_v1 = ParserConstants.PreambleV1Length + ParserConstants.DelimiterV1Length + sizeof(byte);
 
-    private ushort _proxyAddrLength;
-    private ushort _bytesFilled;
+    private byte _proxyAddrLength;
+    private int _bytesFilled;
     private hdr _raw_hdr;
     private ParserStep _step;
 
@@ -117,6 +117,7 @@ public struct ProxyProtocolParser
             sig_v1.CopyTo(preambleV1);
 
             _step = ParserStep.PreambleV1;
+            _bytesFilled = ParserConstants.PreambleV1Length;
             return TryConsumePreambleV1(ref sequenceReader, ref proxyProtocolHeader);
         }
 
@@ -157,8 +158,8 @@ public struct ProxyProtocolParser
         int cmd = ver_cmd & 0x0F;
         if (cmd == 0x00)
         {
-            _proxyAddrLength = len;
             _step = ParserStep.LocalV2;
+            _bytesFilled = len_v2;
             return TryConsumeLocalV2(ref sequenceReader, ref proxyProtocolHeader);
         }
         else if (cmd == 0x01)
@@ -166,7 +167,7 @@ public struct ProxyProtocolParser
             int proxyAddrLength = fam switch
             {
                 // AF_UNSPEC
-                >= 0x00 and <= 0x02 => len,
+                >= 0x00 and <= 0x02 => 0,
                 // TCPv4 / UDPv4
                 >= 0x10 and <= 0x12 => sizeof(ip4),
                 // TCPv6 / UDPv6
@@ -181,8 +182,9 @@ public struct ProxyProtocolParser
                 ParserThrowHelper.ThrowInvalidLength();
             }
 
-            _proxyAddrLength = (ushort)proxyAddrLength;
+            _proxyAddrLength = (byte)proxyAddrLength;
             _step = ParserStep.AddressFamilyV2;
+            _bytesFilled = len_v2;
             return TryConsumeAddressFamilyV2(ref sequenceReader, ref examined, ref proxyProtocolHeader);
         }
         ParserThrowHelper.ThrowInvalidProtocol();
@@ -201,8 +203,8 @@ public struct ProxyProtocolParser
 
     private bool TryConsumeLocalV2(ref SequenceReader<byte> sequenceReader, ref ProxyProtocolHeader proxyProtocolHeader)
     {
-        int length = _proxyAddrLength + len_v2;
-        if (!Discard(ref sequenceReader, length, baseOffset: len_v2))
+        int length = _raw_hdr.v2.len + len_v2;
+        if (!Discard(ref sequenceReader, length))
         {
             return false;
         }
@@ -220,24 +222,34 @@ public struct ProxyProtocolParser
         return true;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int GetActualProxyAddrLength()
+    {
+        int proxyAddrLength = _proxyAddrLength;
+        if (proxyAddrLength == 0)
+        {
+            proxyAddrLength = _raw_hdr.v2.len;
+        }
+        return proxyAddrLength;
+    }
+
     private bool TryConsumeAddressFamilyV2(ref SequenceReader<byte> sequenceReader, ref SequencePosition? examined, ref ProxyProtocolHeader proxyProtocolHeader)
     {
-        const int baseOffset = len_v2;
+        int proxyAddrLength = GetActualProxyAddrLength();
 
-        ushort proxyAddrLength = _proxyAddrLength;
-        int length = proxyAddrLength + baseOffset;
+        int length = proxyAddrLength + len_v2;
 
         byte fam = _raw_hdr.v2.fam;
         if (fam >= 0x00 && fam <= 0x02) // AF_UNSPEC
         {
-            if (!Discard(ref sequenceReader, length, baseOffset))
+            if (!Discard(ref sequenceReader, length))
             {
                 return false;
             }
         }
         else
         {
-            if (!Consume(ref sequenceReader, length, baseOffset, advancePast: true))
+            if (!Consume(ref sequenceReader, length, advancePast: true))
             {
                 return false;
             }
@@ -259,14 +271,12 @@ public struct ProxyProtocolParser
 
     private unsafe bool TryConsumePreambleV1(ref SequenceReader<byte> sequenceReader, ref ProxyProtocolHeader proxyProtocolHeader)
     {
-        const int baseOffset = ParserConstants.PreambleV1Length;
-
-        int crlfOffset = _bytesFilled + baseOffset;
+        int crlfOffset = _bytesFilled;
         ParserUtility.Assert(crlfOffset >= 1, "starting offset is too small");
 
-        bool isComplete = Consume(ref sequenceReader, sizeof(hdr_v1), baseOffset, advancePast: false);
+        bool isComplete = Consume(ref sequenceReader, sizeof(hdr_v1), advancePast: false);
 
-        int bytesFilled = _bytesFilled + baseOffset;
+        int bytesFilled = _bytesFilled;
         ParserUtility.Assert(bytesFilled >= 0);
 
         int bytesCopied = bytesFilled - crlfOffset;
@@ -305,10 +315,6 @@ public struct ProxyProtocolParser
 
             sequenceReader.Advance(bytesCopied);
         }
-        else
-        {
-            ParserUtility.Assert(!isComplete, "line got filled as a result of a zero-byte copy.");
-        }
 
         return false;
     }
@@ -323,7 +329,7 @@ public struct ProxyProtocolParser
 
 
         ushort len = _raw_hdr.v2.len;
-        int tlvLength = len - _proxyAddrLength;
+        int tlvLength = len - GetActualProxyAddrLength();
         ParserUtility.Assert(tlvLength > 0);
 
         // make sure we can read TLVs all at once
@@ -335,7 +341,7 @@ public struct ProxyProtocolParser
             return false;
         }
 
-        int bytesFilled = _bytesFilled + len_v2;
+        int bytesFilled = _bytesFilled;
         int totalLength = bytesFilled + tlvLength;
 
         try
@@ -668,11 +674,11 @@ public struct ProxyProtocolParser
         return (source, destination);
     }
 
-    private bool Discard(ref SequenceReader<byte> sequenceReader, int length, int baseOffset)
+    private bool Discard(ref SequenceReader<byte> sequenceReader, int length)
     {
         ParserUtility.Assert(length >= 0);
 
-        int bytesFilled = _bytesFilled + baseOffset;
+        int bytesFilled = _bytesFilled;
         ParserUtility.Assert(bytesFilled >= 0);
 
         int bytesToFill = length - bytesFilled;
@@ -696,17 +702,17 @@ public struct ProxyProtocolParser
             success = false;
         }
 
-        _bytesFilled = (ushort)(bytesFilled + bytesToFill - baseOffset);
+        _bytesFilled = bytesFilled + bytesToFill;
         sequenceReader.Advance(bytesToFill);
 
         return success;
     }
 
-    private bool Consume(ref SequenceReader<byte> sequenceReader, int length, int baseOffset, bool advancePast)
+    private bool Consume(ref SequenceReader<byte> sequenceReader, int length, bool advancePast)
     {
         ParserUtility.Assert(length >= 0);
 
-        int bytesFilled = _bytesFilled + baseOffset;
+        int bytesFilled = _bytesFilled;
         ParserUtility.Assert(bytesFilled >= 0);
 
         int bytesToFill = length - bytesFilled;
@@ -736,7 +742,7 @@ public struct ProxyProtocolParser
             ParserThrowHelper.ThrowProxyFailedCopy(bytesToFill);
         }
 
-        _bytesFilled = (ushort)(bytesFilled + bytesToFill - baseOffset);
+        _bytesFilled = bytesFilled + bytesToFill;
         if (advancePast)
         {
             sequenceReader.Advance(bytesToFill);

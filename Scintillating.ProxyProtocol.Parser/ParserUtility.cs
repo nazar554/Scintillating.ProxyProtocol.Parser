@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Text;
+using static Scintillating.ProxyProtocol.Parser.ProxyProtocolTlvType;
 
 namespace Scintillating.ProxyProtocol.Parser;
 
@@ -26,6 +27,16 @@ internal static class ParserUtility
     )
     {
         Debug.Assert(condition, $"{message} at {memberName} ({filePath}:{lineNumber})", detailMessage);
+    }
+
+    public static ProxyProtocolTlvFlags ValidateFlags(ProxyProtocolTlvFlags flags)
+    {
+        const ProxyProtocolTlvFlags All = ProxyProtocolTlvFlags.PP2_CLIENT_SSL | ProxyProtocolTlvFlags.PP2_CLIENT_CERT_CONN | ProxyProtocolTlvFlags.PP2_CLIENT_CERT_SESS;
+        if ((flags & All) != All)
+        {
+            ParserThrowHelper.ThrowProxyV2InvalidSslFlags((byte)flags);
+        }
+        return flags;
     }
 
     public static ProxyProtocolTlv ParseAuthority(Span<byte> value)
@@ -54,10 +65,95 @@ internal static class ParserUtility
         return new ProxyProtocolTlvAuthority(authority, value.Length);
     }
 
-    public static ProxyProtocolTlv ParseSslTlv(Span<byte> value)
+    public static ProxyProtocolTlv ParseSslTlv(Span<byte> pp2_tlv_ssl)
     {
-        _ = value;
-        throw new ProxyProtocolException("PROXY V2: parsing SSL TLV's is not yet implemented.");
+        const int OffsetHeader = sizeof(byte) + sizeof(uint);
+        const int SubOffsetHeader = sizeof(byte) + sizeof(ushort);
+
+        int pp2_tlv_ssl_len = pp2_tlv_ssl.Length;
+        if (pp2_tlv_ssl_len < OffsetHeader)
+        {
+            ParserThrowHelper.ThrowTooShortSSLTLV();
+        }
+
+        byte client = pp2_tlv_ssl[0];
+        var flags = ValidateFlags((ProxyProtocolTlvFlags)client);
+        bool verify = BitConverter.ToUInt32(pp2_tlv_ssl.Slice(sizeof(byte), sizeof(uint))) == 0;
+
+        string? version = null;
+        string? cipher = null;
+        string? serverSignatureAlgorithm = null;
+        string? serverKeyAlgorithm = null;
+        string? clientCN = null;
+
+        int index = OffsetHeader;
+        while (index < pp2_tlv_ssl_len)
+        {
+            if (pp2_tlv_ssl_len - index < SubOffsetHeader)
+            {
+                ParserThrowHelper.ThrowInvalidLength();
+            }
+            byte type = pp2_tlv_ssl[index];
+            int length = BinaryPrimitives.ReadUInt16BigEndian(pp2_tlv_ssl.Slice(index + sizeof(byte), sizeof(ushort)));
+            Assert(length >= 0);
+
+            int newIndex = index + length + SubOffsetHeader;
+            if (newIndex > pp2_tlv_ssl_len)
+            {
+                ParserThrowHelper.ThrowInvalidLength();
+            }
+            Span<byte> sub = pp2_tlv_ssl.Slice(index + SubOffsetHeader, length);
+            switch ((ProxyProtocolTlvType)type)
+            {
+                case PP2_SUBTYPE_SSL_CIPHER:
+                    TryAssignValue(ref cipher, _asciiEncoding, sub);
+                    break;
+                case PP2_SUBTYPE_SSL_CN:
+                    TryAssignValue(ref clientCN, _encoding, sub);
+                    break;
+                case PP2_SUBTYPE_SSL_KEY_ALG:
+                    TryAssignValue(ref serverKeyAlgorithm, _asciiEncoding, sub);
+                    break;
+                case PP2_SUBTYPE_SSL_SIG_ALG:
+                    TryAssignValue(ref serverSignatureAlgorithm, _asciiEncoding, sub);
+                    break;
+                case PP2_SUBTYPE_SSL_VERSION:
+                    TryAssignValue(ref version, _asciiEncoding, sub);
+                    break;
+                default:
+                    ParserThrowHelper.ThrowProxyV2InvalidTlvType(type, "invalid SSL sub-TLV");
+                    break;
+            }
+            index = newIndex;
+        }
+
+        if (index != pp2_tlv_ssl_len)
+        {
+            ParserThrowHelper.ThrowInvalidLength();
+        }
+
+        return new ProxyProtocolTlvSsl(pp2_tlv_ssl_len, flags, verify, version, cipher,
+            serverSignatureAlgorithm, serverKeyAlgorithm, clientCN
+        );
+    }
+
+    private static void TryAssignValue(ref string? target,
+        Encoding encoding,
+        Span<byte> value, [CallerArgumentExpression(parameterName: "target")] string? what = null)
+    {
+        if (target is not null)
+        {
+            throw new ProxyProtocolException("PROXY V2:" + what + " is a duplicate field.");
+        }
+
+        try
+        {
+            target = encoding.GetString(value);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new ProxyProtocolException("PROXY V2: invalid " + encoding.WebName + " bytes in " + what + ".", ex);
+        }
     }
 
     public static ProxyProtocolTlv ParseNetNamespace(Span<byte> value)
@@ -248,5 +344,12 @@ internal static class ParserUtility
 
         ipAddress = value;
         return true;
+    }
+
+    [DoesNotReturn]
+    private static ProxyProtocolTlv ThrowUnknownSslTlvType(byte type)
+    {
+        ParserThrowHelper.ThrowProxyV2InvalidTlvType(type, "invalid SSL TLV");
+        return null!;
     }
 }
