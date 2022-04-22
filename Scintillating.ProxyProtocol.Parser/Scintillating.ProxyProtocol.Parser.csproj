@@ -44,6 +44,7 @@
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="LICENSE-3RD-PARTY.txt" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
