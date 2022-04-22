@@ -1,7 +1,6 @@
-using Xunit;
-using System.Buffers;
-
 using FluentAssertions;
+using System.Buffers;
+using Xunit;
 
 namespace Scintillating.ProxyProtocol.Parser.Tests;
 

@@ -284,7 +284,7 @@ public struct ProxyProtocolParser
 
         if (bytesCopied > 0)
         {
-            Span<byte> line = MemoryMarshal.CreateSpan(ref _raw_hdr.v1.line[0], bytesFilled);
+            ReadOnlySpan<byte> line = MemoryMarshal.CreateReadOnlySpan(ref _raw_hdr.v1.line[0], bytesFilled);
 
             // search a bit more to the left
             // because "\r" and "\n" could be split between multiple calls
@@ -341,8 +341,7 @@ public struct ProxyProtocolParser
             return false;
         }
 
-        int bytesFilled = _bytesFilled;
-        int totalLength = bytesFilled + tlvLength;
+        int totalLength = _bytesFilled + tlvLength;
 
         try
         {
@@ -354,16 +353,17 @@ public struct ProxyProtocolParser
             if (totalLength <= sizeof(hdr))
             {
                 proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(
-                    tlvLength, 
+                    tlvLength,
                     in sequenceReader,
                     span: MemoryMarshal.AsBytes(MemoryMarshal.CreateSpan(ref _raw_hdr, 1))[..totalLength]
                 );
             }
             else if (totalLength <= TLV_STACKALLOC_THRESHOLD)
             {
+                Span<byte> scratch = stackalloc byte[totalLength];
                 proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(
-                    tlvLength, in sequenceReader, 
-                    span: CopyFilledHeaderPart(stackalloc byte[totalLength], bytesFilled)
+                    tlvLength, in sequenceReader,
+                    span: CopyFilledHeaderPart(scratch)
                 );
             }
             else
@@ -374,7 +374,7 @@ public struct ProxyProtocolParser
                     proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(
                         tlvLength,
                         in sequenceReader,
-                        span: CopyFilledHeaderPart(array.AsSpan(0, totalLength), bytesFilled)
+                        span: CopyFilledHeaderPart(array.AsSpan(0, totalLength))
                     );
                 }
                 finally
@@ -396,10 +396,9 @@ public struct ProxyProtocolParser
         return true;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Span<byte> CopyFilledHeaderPart(Span<byte> destination, int bytesFilled)
+    private Span<byte> CopyFilledHeaderPart(Span<byte> destination)
     {
-        MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref _raw_hdr, 1))[..bytesFilled]
+        MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref _raw_hdr, 1))[.._bytesFilled]
             .CopyTo(destination);
         return destination;
     }

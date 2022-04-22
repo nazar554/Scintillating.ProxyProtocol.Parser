@@ -18,10 +18,10 @@
 
 using System.Runtime.CompilerServices;
 using Crc32 = System.Runtime.Intrinsics.Arm.Crc32;
+using pg_crc32c = System.UInt32;
 using uint16 = System.UInt16;
 using uint32 = System.UInt32;
 using uint64 = System.UInt64;
-using pg_crc32c = System.UInt32;
 
 namespace Scintillating.ProxyProtocol.Parser.Util
 {
@@ -53,7 +53,7 @@ namespace Scintillating.ProxyProtocol.Parser.Util
                 crc = Crc32.ComputeCrc32C(crc, *(uint16*)p);
                 p += 2;
             }
-            
+
             if (Crc32.Arm64.IsSupported)
             {
                 if (!PointerIsAligned(p, sizeof(uint64)) && p + 4 <= pend)
@@ -85,7 +85,7 @@ namespace Scintillating.ProxyProtocol.Parser.Util
                     p += 4;
                 }
             }
-            
+
             if (p + 2 <= pend)
             {
                 crc = Crc32.ComputeCrc32C(crc, *(uint16*)p);

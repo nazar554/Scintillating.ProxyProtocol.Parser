@@ -18,10 +18,10 @@ internal static class ParserUtility
     private static readonly Encoding _asciiEncoding = Encoding.GetEncoding(Encoding.ASCII.WebName, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
 
     [Conditional("DEBUG")]
-    public static void Assert(bool condition, 
-        string? detailMessage = null, 
+    public static void Assert(bool condition,
+        string? detailMessage = null,
         [CallerArgumentExpression(parameterName: "condition")] string? message = null,
-        [CallerFilePath]string? filePath = null,
+        [CallerFilePath] string? filePath = null,
         [CallerLineNumber] int lineNumber = default,
         [CallerMemberName] string? memberName = null
     )
@@ -39,7 +39,7 @@ internal static class ParserUtility
         return flags;
     }
 
-    public static ProxyProtocolTlv ParseAuthority(Span<byte> value)
+    public static ProxyProtocolTlv ParseAuthority(ReadOnlySpan<byte> value)
     {
         Assert(value.Length >= 0);
         int length = value.Length;
@@ -65,7 +65,7 @@ internal static class ParserUtility
         return new ProxyProtocolTlvAuthority(authority, value.Length);
     }
 
-    public static ProxyProtocolTlv ParseSslTlv(Span<byte> pp2_tlv_ssl)
+    public static ProxyProtocolTlv ParseSslTlv(ReadOnlySpan<byte> pp2_tlv_ssl)
     {
         const int OffsetHeader = sizeof(byte) + sizeof(uint);
         const int SubOffsetHeader = sizeof(byte) + sizeof(ushort);
@@ -102,7 +102,7 @@ internal static class ParserUtility
             {
                 ParserThrowHelper.ThrowInvalidLength();
             }
-            Span<byte> sub = pp2_tlv_ssl.Slice(index + SubOffsetHeader, length);
+            ReadOnlySpan<byte> sub = pp2_tlv_ssl.Slice(index + SubOffsetHeader, length);
             switch ((ProxyProtocolTlvType)type)
             {
                 case PP2_SUBTYPE_SSL_CIPHER:
@@ -139,7 +139,7 @@ internal static class ParserUtility
 
     private static void TryAssignValue(ref string? target,
         Encoding encoding,
-        Span<byte> value, [CallerArgumentExpression(parameterName: "target")] string? what = null)
+        ReadOnlySpan<byte> value, [CallerArgumentExpression(parameterName: "target")] string? what = null)
     {
         if (target is not null)
         {
@@ -156,7 +156,7 @@ internal static class ParserUtility
         }
     }
 
-    public static ProxyProtocolTlv ParseNetNamespace(Span<byte> value)
+    public static ProxyProtocolTlv ParseNetNamespace(ReadOnlySpan<byte> value)
     {
         Assert(value.Length >= 0);
         if (value.IsEmpty)
@@ -177,7 +177,7 @@ internal static class ParserUtility
         return new ProxyProtocolTlvNetNamespace(@namespace);
     }
 
-    public static ProxyProtocolTlv ParseUniqueId(Span<byte> value)
+    public static ProxyProtocolTlv ParseUniqueId(ReadOnlySpan<byte> value)
     {
         if (value.Length >= ProxyProtocolTlvUniqueID.MaxLength)
         {

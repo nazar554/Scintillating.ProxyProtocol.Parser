@@ -82,7 +82,7 @@ public class ProtocolV2CompleteValidDataParserTests
     private static IEnumerable<object?[]> GetCompleteValidData()
     {
         yield return new object?[] {
-            new byte[] { 
+            new byte[] {
                 0x0d, 0x0a, 0x0d, 0x0a, 0x00, 0x0d, 0x0a, 0x51, 0x55, 0x49, 0x54, 0x0a,
                 0x21,
                 0x11,

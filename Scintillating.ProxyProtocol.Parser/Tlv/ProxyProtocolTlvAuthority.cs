@@ -26,7 +26,7 @@ public class ProxyProtocolTlvAuthority : ProxyProtocolTlv, IEquatable<ProxyProto
     /// The authority value.
     /// </summary>
     public string Value { get; }
-    
+
     /// <inheritdoc/>
     public override bool Equals(object? obj)
     {
