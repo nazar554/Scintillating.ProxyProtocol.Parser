@@ -149,7 +149,6 @@ internal static class crc32_sse42
              ^ Unsafe.Add(ref ptr, 3 * TABLE_SIZE + (crc >> 24));
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe uint sse42_crc32c(uint crc, byte* buffer, nuint length)
     {
         if (Sse42.X64.IsSupported)
