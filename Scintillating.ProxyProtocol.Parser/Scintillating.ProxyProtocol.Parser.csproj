@@ -13,7 +13,6 @@
     <Deterministic>true</Deterministic>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-
     <PackageId>Scintillating.ProxyProtocol.Parser</PackageId>
     <PackageTags>parser proxy protocol connection address transport</PackageTags>
     <Authors>Nazar Mishturak</Authors>
@@ -49,6 +48,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+    <InternalsVisibleTo Include="$(AssemblyName).Benchmarks" />
   </ItemGroup>
 
 </Project>
