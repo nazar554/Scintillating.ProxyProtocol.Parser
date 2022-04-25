@@ -22,11 +22,6 @@ public unsafe class IntrinsicsCrc32C
         {
             RuntimeHelpers.RunClassConstructor(typeof(crc32_sse42).TypeHandle);
         }
-        if (Crc32.IsSupported)
-        {
-            RuntimeHelpers.RunClassConstructor(typeof(pg_crc32c_armv8).TypeHandle);
-        }
-        RuntimeHelpers.RunClassConstructor(typeof(pg_crc32c_sb8).TypeHandle);
 
         var data = GC.AllocateUninitializedArray<byte>(N, pinned: true);
         Random.Shared.NextBytes(data);
