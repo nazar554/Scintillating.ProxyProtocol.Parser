@@ -8,7 +8,8 @@ namespace Scintillating.ProxyProtocol.Parser.Benchmarks;
 
 public unsafe class IntrinsicsCrc32C
 {
-    [Params(100, 1000, 1024 * 1024, 100 * 1024 * 1024)]
+    // [Params(100, 1000, 1024 * 1024, 100 * 1024 * 1024)]
+    [Params(10 * 1024 * 1024)]
     public int N;
 
     private byte[] _data = null!;

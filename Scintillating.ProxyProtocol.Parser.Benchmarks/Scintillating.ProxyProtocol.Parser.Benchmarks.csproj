@@ -21,4 +21,8 @@
     <ProjectReference Include="..\Scintillating.ProxyProtocol.Parser\Scintillating.ProxyProtocol.Parser.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Properties\" />
+  </ItemGroup>
+
 </Project>

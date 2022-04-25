@@ -20,6 +20,23 @@ internal sealed partial class Crc32C
             _crc = uint.MaxValue;
         }
 
+        [ExcludeFromCodeCoverage(Justification = "Intrinsics dispatch is machine dependent.")]
+        static Hasher()
+        {
+            if (Sse42.IsSupported)
+            {
+                RuntimeHelpers.RunClassConstructor(typeof(crc32_sse42).TypeHandle);
+            }
+            else if (Crc32.IsSupported)
+            {
+                RuntimeHelpers.RunClassConstructor(typeof(pg_crc32c_armv8).TypeHandle);
+            }
+            else
+            {
+                RuntimeHelpers.RunClassConstructor(typeof(pg_crc32c_sb8).TypeHandle);
+            }
+        }
+
         public Hasher(uint crc)
         {
             _crc = crc;
