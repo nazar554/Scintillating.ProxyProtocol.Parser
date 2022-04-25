@@ -25,8 +25,14 @@ internal sealed partial class Crc32C
         {
             if (Sse42.IsSupported)
             {
-                RuntimeHelpers.RunClassConstructor(typeof(crc32_sse42).TypeHandle);
+                InitSse42();
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void InitSse42()
+        {
+            RuntimeHelpers.RunClassConstructor(typeof(crc32_sse42).TypeHandle);
         }
 
         public Hasher(uint crc)
