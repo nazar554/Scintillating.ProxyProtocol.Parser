@@ -155,22 +155,17 @@ internal static unsafe class crc32_sse42
         ref uint rop = ref MemoryMarshal.GetReference(op);
         crc32c_zeros_op(op, len);
         uint[] zeros = GC.AllocateUninitializedArray<uint>(TABLE_LENGTH, pinned: true);
-        ref uint ptr = ref MemoryMarshal.GetArrayDataReference(zeros);
-        for (uint n = 0; n < TABLE_SIZE; ++n)
+        fixed (uint* ptr = zeros)
         {
-            ref uint x = ref Unsafe.Add(ref ptr, 0 * TABLE_SIZE + n);
-            x = gf2_matrix_times(ref rop, n);
-
-            x = ref Unsafe.Add(ref ptr, 1 * TABLE_SIZE + n);
-            x = gf2_matrix_times(ref rop, n << 8);
-
-            x = ref Unsafe.Add(ref ptr, 2 * TABLE_SIZE + n);
-            x = gf2_matrix_times(ref rop, n << 16);
-
-            x = ref Unsafe.Add(ref ptr, 3 * TABLE_SIZE + n);
-            x = gf2_matrix_times(ref rop, n << 24);
+            for (uint n = 0; n < TABLE_SIZE; ++n)
+            {
+                ptr[0 * TABLE_SIZE + n] = gf2_matrix_times(ref rop, n);
+                ptr[1 * TABLE_SIZE + n] = gf2_matrix_times(ref rop, n << 8);
+                ptr[2 * TABLE_SIZE + n] = gf2_matrix_times(ref rop, n << 16);
+                ptr[3 * TABLE_SIZE + n] = gf2_matrix_times(ref rop, n << 24);
+            }
         }
-
+        
         return zeros;
     }
 

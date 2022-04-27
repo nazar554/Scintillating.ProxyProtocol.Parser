@@ -21,6 +21,37 @@ public class Crc32Tests
         actual.Should().Equal(expected.Reverse());
     }
 
+
+    [Fact]
+    public void ShouldWorkWithLargeData()
+    {
+        var payload = new byte[1024 * 1024];
+        var expected = new byte[] { 0x14, 0x29, 0x8C, 0x12 };
+
+        Func<byte[]> action = () => _crc32c.ComputeHash(payload);
+        var actual = action.Should().NotThrow().Subject;
+        actual.Should().Equal(expected);
+    }
+
+    [Fact]
+    public void ShouldWorkWithLargeDataFallback()
+    {
+        var payload = new byte[1024 * 1024];
+        var expected = new byte[] { 0x14, 0x29, 0x8C, 0x12 };
+
+        var actual = new byte[sizeof(uint)];
+        unsafe
+        {
+            fixed (byte* ptr = payload)
+            {
+                var fallback = ~pg_crc32c_sb8.pg_comp_crc32c_sb8(uint.MaxValue, ptr, (nuint)payload.Length);
+                BinaryPrimitives.WriteUInt32BigEndian(actual, fallback);
+            }
+        }
+
+        actual.Should().Equal(expected);
+    }
+
     [Theory]
     [MemberData(nameof(RfcExamples))]
     public void ShouldWorkWithRfcSpanExamples(byte[] payload, byte[] expected)
@@ -168,7 +199,7 @@ public class Crc32Tests
         const int OddOffset = 3;
 
         Span<byte> span = stackalloc byte[OddOffset + sizeof(ulong)];
-        BinaryPrimitives.WriteUInt64LittleEndian(span.Slice(OddOffset), 0x9bc138abae315de2UL);
+        BinaryPrimitives.WriteUInt64LittleEndian(span[OddOffset..], 0x9bc138abae315de2UL);
 
         unsafe
         {
@@ -189,7 +220,7 @@ public class Crc32Tests
         const int OddOffset = 3;
 
         Span<byte> span = stackalloc byte[OddOffset + sizeof(ulong)];
-        BinaryPrimitives.WriteUInt64LittleEndian(span.Slice(OddOffset), 0x9bc138abae315de2UL);
+        BinaryPrimitives.WriteUInt64LittleEndian(span[OddOffset..], 0x9bc138abae315de2UL);
 
         unsafe
         {
@@ -209,7 +240,7 @@ public class Crc32Tests
         const int OddOffset = 3;
 
         Span<byte> span = stackalloc byte[OddOffset + sizeof(ulong)];
-        BinaryPrimitives.WriteUInt64LittleEndian(span.Slice(OddOffset), 0x9bc138abae315de2UL);
+        BinaryPrimitives.WriteUInt64LittleEndian(span[OddOffset..], 0x9bc138abae315de2UL);
 
         unsafe
         {
