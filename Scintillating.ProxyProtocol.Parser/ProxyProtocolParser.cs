@@ -471,7 +471,7 @@ public struct ProxyProtocolParser
 
             >= PP2_SUBTYPE_SSL_VERSION and <= PP2_SUBTYPE_SSL_KEY_ALG => ThrowProxyV2InvalidTlvType(type, "reserved for SSL sub TLV subtypes"),
             >= PP2_TYPE_MIN_FUTURE and <= PP2_TYPE_MAX_FUTURE => ThrowProxyV2InvalidTlvType(type, "reserved for future"),
-            _ => ThrowProxyV2InvalidTlvType(type, "unrecognized type"),
+            _ => new ProxyProtocolTlvUnknown(ptype, value.ToArray())
         };
     }
 
