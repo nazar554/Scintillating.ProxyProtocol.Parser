@@ -20,19 +20,6 @@ public class ProxyProtocolTlvSsl : ProxyProtocolTlv
         string? cipher, string? serverSignatureAlgorithm, string? serverKeyAlgorithm, string? clientCN, int length)
         : base(ProxyProtocolTlvType.PP2_TYPE_SSL, length)
     {
-        Flags = ParserUtility.ValidateFlags(flags);
-        Verify = verify;
-        Version = version;
-        Cipher = cipher;
-        ServerSignatureAlgorithm = serverSignatureAlgorithm;
-        ClientCN = clientCN;
-        ServerKeyAlgorithm = serverKeyAlgorithm;
-    }
-
-    internal ProxyProtocolTlvSsl(int length, ProxyProtocolTlvFlags flags, bool verify,
-        string? version, string? cipher, string? serverSignatureAlgorithm, string? serverKeyAlgorithm, string? clientCN)
-        : base(ProxyProtocolTlvType.PP2_TYPE_SSL, length)
-    {
         Flags = flags;
         Verify = verify;
         Version = version;

@@ -29,7 +29,6 @@ public class ProxyProtocolTlvUniqueID : ProxyProtocolTlv
 
     private static int GetLength(ReadOnlyMemory<byte> value)
     {
-        ParserUtility.Assert(value.Length >= 0);
         int length = value.Length;
         if (length > MaxLength)
         {

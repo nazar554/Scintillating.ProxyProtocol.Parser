@@ -90,8 +90,8 @@ public struct ProxyProtocolParser
     private unsafe bool TryConsumeInitial(ref SequenceReader<byte> sequenceReader, ref SequencePosition? examined, ref ProxyProtocolHeader proxyProtocolHeader)
     {
         long remainingBytes = sequenceReader.Remaining;
-        ParserUtility.Assert(_bytesFilled == 0);
-        ParserUtility.Assert(_proxyAddrLength == 0);
+        ParserUtility.Assert(_bytesFilled == 0, "expected zero filled bytes during initial consume");
+        ParserUtility.Assert(_proxyAddrLength == 0, "expected no proxy address length during initial consum");
 
         var sig_v1 = ParserConstants.PreambleV1;
         var sig_v2 = ParserConstants.SigV2;
@@ -103,15 +103,11 @@ public struct ProxyProtocolParser
 
         if (startsWithV2 && remainingBytes >= len_v2)
         {
-            ParserUtility.Assert(len_v2 > hdr_v2.sig_len);
-
             sequenceReader.Advance(hdr_v2.sig_len);
             return TryConsumeInitialV2(ref sequenceReader, ref examined, ref proxyProtocolHeader);
         }
         if (startsWithV1 && remainingBytes >= len_v1)
         {
-            ParserUtility.Assert(len_v1 > ParserConstants.PreambleV1Length);
-
             sequenceReader.Advance(ParserConstants.PreambleV1Length);
             var preambleV1 = MemoryMarshal.CreateSpan(ref _raw_hdr.v1.line[0], ParserConstants.PreambleV1Length);
             sig_v1.CopyTo(preambleV1);
@@ -228,6 +224,9 @@ public struct ProxyProtocolParser
         int proxyAddrLength = _proxyAddrLength;
         if (proxyAddrLength == 0)
         {
+            ParserUtility.Assert(_raw_hdr.v2.fam is >= 0 and <= 0x02, "address length is zero, but family is not AF_UNSPEC");
+
+            // it's AF_UNSPEC, assume everything after the header is part of the address
             proxyAddrLength = _raw_hdr.v2.len;
         }
         return proxyAddrLength;
@@ -277,10 +276,10 @@ public struct ProxyProtocolParser
         bool isComplete = Consume(ref sequenceReader, sizeof(hdr_v1), advancePast: false);
 
         int bytesFilled = _bytesFilled;
-        ParserUtility.Assert(bytesFilled >= 0);
+        ParserUtility.Assert(bytesFilled >= 0, "filled bytes overflow");
 
         int bytesCopied = bytesFilled - crlfOffset;
-        ParserUtility.Assert(bytesCopied >= 0);
+        ParserUtility.Assert(bytesCopied >= 0, "consume reduced filled length");
 
         if (bytesCopied > 0)
         {
@@ -327,10 +326,9 @@ public struct ProxyProtocolParser
             return false;
         }
 
-
         ushort len = _raw_hdr.v2.len;
         int tlvLength = len - GetActualProxyAddrLength();
-        ParserUtility.Assert(tlvLength > 0);
+        ParserUtility.Assert(tlvLength > 0, "attempted to read TLVs when no were expected");
 
         // make sure we can read TLVs all at once
         if (remaining < tlvLength)
@@ -406,7 +404,7 @@ public struct ProxyProtocolParser
     private unsafe ProxyProtocolHeader ConsumeTypeLengthValueFromSpanV2(int tlvLength, in SequenceReader<byte> sequenceReader, Span<byte> span)
     {
         int totalLength = span.Length;
-        ParserUtility.Assert(totalLength > tlvLength);
+        ParserUtility.Assert(totalLength > tlvLength, "total header length must be bigger than TLVs");
         int index = totalLength - tlvLength;
 
         if (!sequenceReader.TryCopyTo(span[index..]))
@@ -423,7 +421,6 @@ public struct ProxyProtocolParser
             }
             byte type = span[index];
             int length = BinaryPrimitives.ReadUInt16BigEndian(span.Slice(index + 1, 2));
-            ParserUtility.Assert(length >= 0);
 
             int newIndex = index + length + 3;
             if (newIndex > totalLength)
@@ -675,13 +672,13 @@ public struct ProxyProtocolParser
 
     private bool Discard(ref SequenceReader<byte> sequenceReader, int length)
     {
-        ParserUtility.Assert(length >= 0);
+        ParserUtility.Assert(length >= 0, "attempted to discard with negative target length");
 
         int bytesFilled = _bytesFilled;
-        ParserUtility.Assert(bytesFilled >= 0);
+        ParserUtility.Assert(bytesFilled >= 0, "discarding with negative filled bytes");
 
         int bytesToFill = length - bytesFilled;
-        ParserUtility.Assert(bytesToFill >= 0);
+        ParserUtility.Assert(bytesToFill >= 0, "attempting to discard a negative number of bytes");
 
         if (bytesToFill == 0)
         {
@@ -709,13 +706,13 @@ public struct ProxyProtocolParser
 
     private bool Consume(ref SequenceReader<byte> sequenceReader, int length, bool advancePast)
     {
-        ParserUtility.Assert(length >= 0);
+        ParserUtility.Assert(length >= 0, "attempting to consume with negative target length");
 
         int bytesFilled = _bytesFilled;
-        ParserUtility.Assert(bytesFilled >= 0);
+        ParserUtility.Assert(bytesFilled >= 0, "discarding with negative filled bytes");
 
         int bytesToFill = length - bytesFilled;
-        ParserUtility.Assert(bytesToFill >= 0);
+        ParserUtility.Assert(bytesToFill >= 0, "attempting to consume a negative number of bytes");
 
         if (bytesToFill == 0)
         {
