@@ -420,15 +420,14 @@ internal static unsafe class crc32_sse42
             .As<uint, ulong>();
         byte* end = buf + 4096 - 64;
 
-        Vector128<ulong> x5, x6;
         do
         {
             acc_a = Sse42.X64.Crc32(acc_a, *(ulong*)buf);
-            x5 = Pclmulqdq.CarrylessMultiply(x1, k1k2, 0x00);
+            Vector128<ulong> _x5 = Pclmulqdq.CarrylessMultiply(x1, k1k2, 0x00);
             acc_b = Sse42.X64.Crc32(acc_b, *(ulong*)(buf + 728));
             x1 = Pclmulqdq.CarrylessMultiply(x1, k1k2, 0x11);
             acc_c = Sse42.X64.Crc32(acc_c, *(ulong*)(buf + 728 * 2));
-            x6 = Pclmulqdq.CarrylessMultiply(x2, k1k2, 0x00);
+            Vector128<ulong> _x6 = Pclmulqdq.CarrylessMultiply(x2, k1k2, 0x00);
             acc_a = Sse42.X64.Crc32(acc_a, *(ulong*)(buf + 8));
             x2 = Pclmulqdq.CarrylessMultiply(x2, k1k2, 0x11);
             acc_b = Sse42.X64.Crc32(acc_b, *(ulong*)(buf + 728 + 8));
@@ -440,10 +439,10 @@ internal static unsafe class crc32_sse42
             acc_b = Sse42.X64.Crc32(acc_b, *(ulong*)(buf + 728 + 16));
             x4 = Pclmulqdq.CarrylessMultiply(x4, k1k2, 0x11);
             acc_c = Sse42.X64.Crc32(acc_c, *(ulong*)(buf + 728 * 2 + 16));
-            x5 = Sse2.Xor(x5, Sse2.LoadVector128((ulong*)(buf2 + 64)));
-            x1 = Sse2.Xor(x1, x5);
-            x6 = Sse2.Xor(x6, Sse2.LoadVector128((ulong*)(buf2 + 80)));
-            x2 = Sse2.Xor(x2, x6);
+            _x5 = Sse2.Xor(_x5, Sse2.LoadVector128((ulong*)(buf2 + 64)));
+            x1 = Sse2.Xor(x1, _x5);
+            _x6 = Sse2.Xor(_x6, Sse2.LoadVector128((ulong*)(buf2 + 80)));
+            x2 = Sse2.Xor(x2, _x6);
             x7 = Sse2.Xor(x7, Sse2.LoadVector128((ulong*)(buf2 + 96)));
             x3 = Sse2.Xor(x3, x7);
             x8 = Sse2.Xor(x8, Sse2.LoadVector128((ulong*)(buf2 + 112)));
@@ -458,11 +457,11 @@ internal static unsafe class crc32_sse42
         Vector128<ulong> k3k4 = Vector128.Create(/*k3*/ 0xF20C0DFEu, 0u, /*k4*/ 0x493C7D27u, 0u)
             .As<uint, ulong>();
         acc_a = Sse42.X64.Crc32(acc_a, *(ulong*)buf);
-        x5 = Pclmulqdq.CarrylessMultiply(x1, k3k4, 0x00);
+        Vector128<ulong> x5 = Pclmulqdq.CarrylessMultiply(x1, k3k4, 0x00);
         acc_b = Sse42.X64.Crc32(acc_b, *(ulong*)(buf + 728));
         x1 = Pclmulqdq.CarrylessMultiply(x1, k3k4, 0x11);
         acc_c = Sse42.X64.Crc32(acc_c, *(ulong*)(buf + 728 * 2));
-        x6 = Pclmulqdq.CarrylessMultiply(x3, k3k4, 0x00);
+        Vector128<ulong> x6 = Pclmulqdq.CarrylessMultiply(x3, k3k4, 0x00);
         acc_a = Sse42.X64.Crc32(acc_a, *(ulong*)(buf + 8));
         x3 = Pclmulqdq.CarrylessMultiply(x3, k3k4, 0x11);
         acc_b = Sse42.X64.Crc32(acc_b, *(ulong*)(buf + 728 + 8));
