@@ -56,43 +56,38 @@ internal static unsafe class crc32_sse42
     // Tables for updating a crc for LONG, 2 * LONG, SHORT and 2 * SHORT bytes
     // of value 0 later in the input stream, in the same way that the hardware
     // would, but in software without calculating intermediate steps.
-    private static readonly uint[] crc32c_long;
-    private static readonly uint* ptr_crc32c_long;
+    private static uint[]? crc32c_long;
+    private static uint* ptr_crc32c_long;
 
-    private static readonly uint[] crc32c_2long;
-    private static readonly uint* ptr_crc32c_2long;
+    private static uint[]? crc32c_2long;
+    private static uint* ptr_crc32c_2long;
 
-    private static readonly uint[] crc32c_short;
-    private static readonly uint* ptr_crc32c_short;
+    private static uint[]? crc32c_short;
+    private static uint* ptr_crc32c_short;
 
-    private static readonly uint[] crc32c_2short;
-    private static readonly uint* ptr_crc32c_2short;
+    private static uint[]? crc32c_2short;
+    private static uint* ptr_crc32c_2short;
 
-    static crc32_sse42()
+    // Use ModuleInitializer to avoid problems with static ctor and/or beforefieldinit
+    [ModuleInitializer]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [SuppressMessage("Usage", "CA2255:The 'ModuleInitializer' attribute should not be used in libraries", Justification = "Hoist JIT checks for static initialization")]
+    internal static void Initialize()
     {
-        uint[] array = crc32c_long = crc32c_zeros(LONG);
-        fixed (uint* ptr = array)
+        if (Sse42.IsSupported)
         {
-            ptr_crc32c_long = ptr;
+            InitializeImpl();
         }
+    }
 
-        array = crc32c_2long = crc32c_zeros(2 * LONG);
-        fixed (uint* ptr = array)
-        {
-            ptr_crc32c_2long = ptr;
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void InitializeImpl()
+    {
+        ptr_crc32c_long = crc32c_zeros(LONG, out crc32c_long);
+        ptr_crc32c_2long = crc32c_zeros(2 * LONG, out crc32c_2long);
 
-        array = crc32c_short = crc32c_zeros(SHORT);
-        fixed (uint* ptr = array)
-        {
-            ptr_crc32c_short = ptr;
-        }
-
-        array = crc32c_2short = crc32c_zeros(2 * SHORT);
-        fixed (uint* ptr = array)
-        {
-            ptr_crc32c_2short = ptr;
-        }
+        ptr_crc32c_short = crc32c_zeros(SHORT, out crc32c_short);
+        ptr_crc32c_2short = crc32c_zeros(2 * SHORT, out crc32c_2short);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -111,7 +106,6 @@ internal static unsafe class crc32_sse42
         return sum;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void gf2_matrix_square(Span<uint> square, ref uint mat)
     {
         for (int n = 0; n < square.Length; ++n)
@@ -155,7 +149,7 @@ internal static unsafe class crc32_sse42
         odd.CopyTo(even);
     }
 
-    private static uint[] crc32c_zeros(nuint len)
+    private static uint* crc32c_zeros(nuint len, out uint[] array)
     {
         Span<uint> op = stackalloc uint[32];
         ref uint rop = ref MemoryMarshal.GetReference(op);
@@ -170,10 +164,11 @@ internal static unsafe class crc32_sse42
                 ptr[2 * TABLE_SIZE + n] = gf2_matrix_times(ref rop, n << 16);
                 ptr[3 * TABLE_SIZE + n] = gf2_matrix_times(ref rop, n << 24);
             }
+
+            array = zeros;
+            return ptr;
         }
-        
-        return zeros;
-    }
+    } 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint crc32c_shift(uint* ptr, uint crc)

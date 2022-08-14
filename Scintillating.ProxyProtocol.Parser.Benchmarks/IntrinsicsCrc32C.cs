@@ -18,11 +18,6 @@ public unsafe class IntrinsicsCrc32C
     [GlobalSetup]
     public void GlobalSetup()
     {
-        if (Sse42.IsSupported)
-        {
-            RuntimeHelpers.RunClassConstructor(typeof(crc32_sse42).TypeHandle);
-        }
-
         var data = GC.AllocateUninitializedArray<byte>(N, pinned: true);
         Random.Shared.NextBytes(data);
         _data = data;
