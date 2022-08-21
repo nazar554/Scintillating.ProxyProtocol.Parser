@@ -61,7 +61,6 @@ internal static unsafe class crc32_sse42
     private static readonly uint[]? crc32c_2short;
     private static readonly uint* ptr_crc32c_2short = crc32c_zeros(2 * SHORT, out crc32c_2short);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint gf2_matrix_times(ref uint mat, uint vec)
     {
         uint sum = 0;
