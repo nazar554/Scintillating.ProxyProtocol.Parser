@@ -12,5 +12,5 @@ internal struct proxy_addr
     public ip6 ip6;
 
     [FieldOffset(0)]
-    public unix unix;
+    public af_unix unix;
 }

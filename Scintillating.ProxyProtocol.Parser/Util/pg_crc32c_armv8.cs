@@ -24,81 +24,80 @@ using uint16 = System.UInt16;
 using uint32 = System.UInt32;
 using uint64 = System.UInt64;
 
-namespace Scintillating.ProxyProtocol.Parser.Util
+namespace Scintillating.ProxyProtocol.Parser.Util;
+
+[ExcludeFromCodeCoverage(Justification = "ARMv8 CRC32C is machine dependent.")]
+internal static class pg_crc32c_armv8
 {
-    [ExcludeFromCodeCoverage(Justification = "ARMv8 CRC32C is machine dependent.")]
-    internal static class pg_crc32c_armv8
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static unsafe bool PointerIsAligned(void* pointer, nuint len)
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe bool PointerIsAligned(void* pointer, nuint len)
+        return ((nuint)pointer % len) == 0;
+    }
+
+    public static unsafe pg_crc32c pg_comp_crc32c_armv8(pg_crc32c crc, byte* data, nuint len)
+    {
+        byte* p = data;
+        byte* pend = data + len;
+
+        /*
+         * ARMv8 doesn't require alignment, but aligned memory access is
+         * significantly faster. Process leading bytes so that the loop below
+         * starts with a pointer aligned to eight bytes.
+         */
+        if (!PointerIsAligned(p, sizeof(uint16)) && p + 1 <= pend)
         {
-            return ((nuint)pointer % len) == 0;
+            crc = Crc32.ComputeCrc32C(crc, *p);
+            p += 1;
+        }
+        if (!PointerIsAligned(p, sizeof(uint32)) && p + 2 <= pend)
+        {
+            crc = Crc32.ComputeCrc32C(crc, *(uint16*)p);
+            p += 2;
         }
 
-        public static unsafe pg_crc32c pg_comp_crc32c_armv8(pg_crc32c crc, byte* data, nuint len)
+        if (Crc32.Arm64.IsSupported)
         {
-            byte* p = data;
-            byte* pend = data + len;
-
-            /*
-             * ARMv8 doesn't require alignment, but aligned memory access is
-             * significantly faster. Process leading bytes so that the loop below
-             * starts with a pointer aligned to eight bytes.
-             */
-            if (!PointerIsAligned(p, sizeof(uint16)) && p + 1 <= pend)
+            if (!PointerIsAligned(p, sizeof(uint64)) && p + 4 <= pend)
             {
-                crc = Crc32.ComputeCrc32C(crc, *p);
-                p += 1;
-            }
-            if (!PointerIsAligned(p, sizeof(uint32)) && p + 2 <= pend)
-            {
-                crc = Crc32.ComputeCrc32C(crc, *(uint16*)p);
-                p += 2;
+                crc = Crc32.ComputeCrc32C(crc, *(uint32*)p);
+                p += 4;
             }
 
-            if (Crc32.Arm64.IsSupported)
+            /* Process eight bytes at a time, as far as we can. */
+            while (p + 8 <= pend)
             {
-                if (!PointerIsAligned(p, sizeof(uint64)) && p + 4 <= pend)
-                {
-                    crc = Crc32.ComputeCrc32C(crc, *(uint32*)p);
-                    p += 4;
-                }
-
-                /* Process eight bytes at a time, as far as we can. */
-                while (p + 8 <= pend)
-                {
-                    crc = Crc32.Arm64.ComputeCrc32C(crc, *(uint64*)p);
-                    p += 8;
-                }
-
-                /* Process remaining 0-7 bytes. */
-                if (p + 4 <= pend)
-                {
-                    crc = Crc32.ComputeCrc32C(crc, *(uint32*)p);
-                    p += 4;
-                }
-            }
-            else
-            {
-                /* Process four bytes at a time, as far as we can. */
-                while (p + 4 <= pend)
-                {
-                    crc = Crc32.ComputeCrc32C(crc, *(uint32*)p);
-                    p += 4;
-                }
+                crc = Crc32.Arm64.ComputeCrc32C(crc, *(uint64*)p);
+                p += 8;
             }
 
-            if (p + 2 <= pend)
+            /* Process remaining 0-7 bytes. */
+            if (p + 4 <= pend)
             {
-                crc = Crc32.ComputeCrc32C(crc, *(uint16*)p);
-                p += 2;
+                crc = Crc32.ComputeCrc32C(crc, *(uint32*)p);
+                p += 4;
             }
-            if (p < pend)
-            {
-                crc = Crc32.ComputeCrc32C(crc, *p);
-            }
-
-            return crc;
         }
+        else
+        {
+            /* Process four bytes at a time, as far as we can. */
+            while (p + 4 <= pend)
+            {
+                crc = Crc32.ComputeCrc32C(crc, *(uint32*)p);
+                p += 4;
+            }
+        }
+
+        if (p + 2 <= pend)
+        {
+            crc = Crc32.ComputeCrc32C(crc, *(uint16*)p);
+            p += 2;
+        }
+        if (p < pend)
+        {
+            crc = Crc32.ComputeCrc32C(crc, *p);
+        }
+
+        return crc;
     }
 }

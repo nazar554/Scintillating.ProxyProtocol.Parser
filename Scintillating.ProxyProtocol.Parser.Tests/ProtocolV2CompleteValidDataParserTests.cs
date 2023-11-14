@@ -15,7 +15,7 @@ public class ProtocolV2CompleteValidDataParserTests
     [Theory]
     [MemberData(nameof(GetCompleteValidData))]
     public void ShouldWorkWithCompleteValidData(byte[] data,
-        long? length,
+        int? length,
         ProxyCommand command,
         AddressFamily addressFamily, SocketType socketType,
         EndPoint? source = null, EndPoint? destination = null
@@ -32,7 +32,7 @@ public class ProtocolV2CompleteValidDataParserTests
 
         success.Should().BeTrue("input data is complete");
 
-        long offset = length ?? data.Length;
+        int offset = length ?? data.Length;
 
         sequence.GetOffset(advanceTo.Consumed).Should().Be(offset, "input data is complete");
         sequence.GetOffset(advanceTo.Examined).Should().Be(offset, "input data is complete");
@@ -47,7 +47,7 @@ public class ProtocolV2CompleteValidDataParserTests
             proxyProtocolHeader!.Command
                 .Should().Be(command, "command should be valid");
             proxyProtocolHeader!.Length
-                .Should().Be((int)offset, "entire header has to be consumed");
+                .Should().Be(offset, "entire header has to be consumed");
 
             proxyProtocolHeader!.AddressFamily
                 .Should().Be(addressFamily, "it should match the sample");
@@ -79,7 +79,7 @@ public class ProtocolV2CompleteValidDataParserTests
         return Encoding.UTF8.GetBytes(path.PadRight(108, '\0'));
     }
 
-    private static IEnumerable<object?[]> GetCompleteValidData()
+    public static IEnumerable<object?[]> GetCompleteValidData()
     {
         yield return new object?[] {
             new byte[] {
@@ -141,7 +141,7 @@ public class ProtocolV2CompleteValidDataParserTests
             }
             .Concat(new byte[ushort.MaxValue])
             .ToArray(),
-            (long)ushort.MaxValue + ProxyProtocolParser.len_v2,
+            ushort.MaxValue + ProxyProtocolParser.len_v2,
             ProxyCommand.Proxy,
             AddressFamily.InterNetwork,
             SocketType.Stream,
@@ -231,7 +231,7 @@ public class ProtocolV2CompleteValidDataParserTests
             }
             .Concat(new byte[ushort.MaxValue])
             .ToArray(),
-            (long)ushort.MaxValue + ProxyProtocolParser.len_v2,
+            ushort.MaxValue + ProxyProtocolParser.len_v2,
             ProxyCommand.Proxy,
             AddressFamily.Unspecified,
             SocketType.Unknown,

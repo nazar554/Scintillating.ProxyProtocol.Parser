@@ -65,7 +65,7 @@ public class ProtocolV2Tests
         }
     }
 
-    private static IEnumerable<object[]> GetRealTestCases()
+    public static IEnumerable<object[]> GetRealTestCases()
     {
         yield return new object[]
         {

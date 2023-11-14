@@ -60,7 +60,7 @@ public class ProtocolV1CompleteValidDataParserTests
         }
     }
 
-    private static IEnumerable<object[]> GetCompleteValidData()
+    public static IEnumerable<object[]> GetCompleteValidData()
     {
         yield return new object[] {
             "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n",

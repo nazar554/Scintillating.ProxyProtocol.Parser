@@ -50,46 +50,11 @@ internal static unsafe class crc32_sse42
     // Tables for updating a crc for LONG, 2 * LONG, SHORT and 2 * SHORT bytes
     // of value 0 later in the input stream, in the same way that the hardware
     // would, but in software without calculating intermediate steps.
-    private static readonly uint[] crc32c_long;
-    private static readonly uint* ptr_crc32c_long;
+    private static readonly uint[] crc32c_long = crc32c_zeros(LONG);
+    private static readonly uint[] crc32c_2long = crc32c_zeros(2 * LONG);
+    private static readonly uint[] crc32c_short = crc32c_zeros(SHORT);
+    private static readonly uint[] crc32c_2short = crc32c_zeros(2 * SHORT);
 
-    private static readonly uint[] crc32c_2long;
-    private static readonly uint* ptr_crc32c_2long;
-
-    private static readonly uint[] crc32c_short;
-    private static readonly uint* ptr_crc32c_short;
-
-    private static readonly uint[] crc32c_2short;
-    private static readonly uint* ptr_crc32c_2short;
-
-    static crc32_sse42()
-    {
-        crc32c_long = crc32c_zeros(LONG);
-        fixed (uint* ptr = crc32c_long)
-        {
-            ptr_crc32c_long = ptr;
-        }
-
-        crc32c_2long = crc32c_zeros(2 * LONG);
-        fixed (uint* ptr = crc32c_2long)
-        {
-            ptr_crc32c_2long = ptr;
-        }
-
-        crc32c_short = crc32c_zeros(SHORT);
-        fixed (uint* ptr = crc32c_short)
-        {
-            ptr_crc32c_short = ptr;
-        }
-
-        crc32c_2short = crc32c_zeros(2 * SHORT);
-        fixed (uint* ptr = crc32c_2short)
-        {
-            ptr_crc32c_2short = ptr;
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint gf2_matrix_times(ref uint mat, uint vec)
     {
         uint sum = 0;
@@ -155,27 +120,27 @@ internal static unsafe class crc32_sse42
         ref uint rop = ref MemoryMarshal.GetReference(op);
         crc32c_zeros_op(op, len);
         uint[] zeros = GC.AllocateUninitializedArray<uint>(TABLE_LENGTH, pinned: true);
-        fixed (uint* ptr = zeros)
+        ref uint start = ref MemoryMarshal.GetArrayDataReference(zeros);
+
+        for (uint n = 0; n < TABLE_SIZE; ++n)
         {
-            for (uint n = 0; n < TABLE_SIZE; ++n)
-            {
-                ptr[0 * TABLE_SIZE + n] = gf2_matrix_times(ref rop, n);
-                ptr[1 * TABLE_SIZE + n] = gf2_matrix_times(ref rop, n << 8);
-                ptr[2 * TABLE_SIZE + n] = gf2_matrix_times(ref rop, n << 16);
-                ptr[3 * TABLE_SIZE + n] = gf2_matrix_times(ref rop, n << 24);
-            }
+            Unsafe.Add(ref start, 0 * TABLE_SIZE + n) = gf2_matrix_times(ref rop, n);
+            Unsafe.Add(ref start, 1 * TABLE_SIZE + n) = gf2_matrix_times(ref rop, n << 8);
+            Unsafe.Add(ref start, 2 * TABLE_SIZE + n) = gf2_matrix_times(ref rop, n << 16);
+            Unsafe.Add(ref start, 3 * TABLE_SIZE + n) = gf2_matrix_times(ref rop, n << 24);
         }
-        
+
         return zeros;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint crc32c_shift(uint* ptr, uint crc)
+    private static uint crc32c_shift(uint[] array, uint crc)
     {
-        return ptr[0 * TABLE_SIZE + (crc & 0xff)]
-             ^ ptr[1 * TABLE_SIZE + ((crc >> 8) & 0xff)]
-             ^ ptr[2 * TABLE_SIZE + ((crc >> 16) & 0xff)]
-             ^ ptr[3 * TABLE_SIZE + (crc >> 24)];
+        ref uint target = ref MemoryMarshal.GetArrayDataReference(array);
+        return Unsafe.Add(ref target, 0 * TABLE_SIZE + (crc & 0xff))
+             ^ Unsafe.Add(ref target, 1 * TABLE_SIZE + ((crc >> 8) & 0xff))
+             ^ Unsafe.Add(ref target, 2 * TABLE_SIZE + ((crc >> 16) & 0xff))
+             ^ Unsafe.Add(ref target, 3 * TABLE_SIZE + (crc >> 24));
     }
 
     public static unsafe uint sse42_crc32c(uint crc, byte* buffer, nuint length)
@@ -222,9 +187,9 @@ internal static unsafe class crc32_sse42
                 }
                 while (next < end);
 
-                crc = (uint)(crc32c_shift(ptr_crc32c_long, crc) ^ crc0);
-                crc1 = crc32c_shift(ptr_crc32c_long, (uint)crc1);
-                crc = (uint)(crc32c_shift(ptr_crc32c_2long, crc) ^ crc1);
+                crc = (uint)(crc32c_shift(crc32c_long, crc) ^ crc0);
+                crc1 = crc32c_shift(crc32c_long, (uint)crc1);
+                crc = (uint)(crc32c_shift(crc32c_2long, crc) ^ crc1);
                 crc0 = crc2;
                 next += LONG * 2;
                 len -= LONG * 3;
@@ -250,9 +215,9 @@ internal static unsafe class crc32_sse42
             }
             while (next < end);
 
-            crc = (uint)(crc32c_shift(ptr_crc32c_short, crc) ^ crc0);
-            crc1 = crc32c_shift(ptr_crc32c_short, (uint)crc1);
-            crc = (uint)(crc32c_shift(ptr_crc32c_2short, crc) ^ crc1);
+            crc = (uint)(crc32c_shift(crc32c_short, crc) ^ crc0);
+            crc1 = crc32c_shift(crc32c_short, (uint)crc1);
+            crc = (uint)(crc32c_shift(crc32c_2short, crc) ^ crc1);
             crc0 = crc2;
             next += SHORT * 2;
             len -= SHORT * 3;
@@ -310,9 +275,9 @@ internal static unsafe class crc32_sse42
                 }
                 while (next < end);
 
-                crc = crc32c_shift(ptr_crc32c_long, crc) ^ crc0;
-                crc1 = crc32c_shift(ptr_crc32c_long, crc1);
-                crc = crc32c_shift(ptr_crc32c_2long, crc) ^ crc1;
+                crc = crc32c_shift(crc32c_long, crc) ^ crc0;
+                crc1 = crc32c_shift(crc32c_long, crc1);
+                crc = crc32c_shift(crc32c_2long, crc) ^ crc1;
                 crc0 = crc2;
                 next += LONG * 2;
                 len -= LONG * 3;
@@ -338,9 +303,9 @@ internal static unsafe class crc32_sse42
             }
             while (next < end);
 
-            crc = crc32c_shift(ptr_crc32c_short, crc) ^ crc0;
-            crc1 = crc32c_shift(ptr_crc32c_short, crc1);
-            crc = crc32c_shift(ptr_crc32c_2short, crc) ^ crc1;
+            crc = crc32c_shift(crc32c_short, crc) ^ crc0;
+            crc1 = crc32c_shift(crc32c_short, crc1);
+            crc = crc32c_shift(crc32c_2short, crc) ^ crc1;
             crc0 = crc2;
             next += SHORT * 2;
             len -= SHORT * 3;

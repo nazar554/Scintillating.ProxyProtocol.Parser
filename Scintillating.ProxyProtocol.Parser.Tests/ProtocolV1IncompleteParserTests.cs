@@ -163,7 +163,7 @@ public class ProtocolV1IncompleteParserTests
         }
     }
 
-    private static IEnumerable<object[]> GetIncompleteChunks()
+    public static IEnumerable<object[]> GetIncompleteChunks()
     {
         yield return new object[] {
             new string[] { "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n" },

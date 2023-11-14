@@ -1,7 +1,7 @@
 ﻿namespace Scintillating.ProxyProtocol.Parser;
 
 /// <summary>
-/// The lowest four bits of <see cref="raw.hdr_v2.ver_cmd"/> represent the command
+/// The lowest four bits of <see cref="raw.proxy_hdr_v2.ver_cmd"/> represent the command
 /// </summary>
 /// <remarks>
 /// Other values are unassigned and must not be emitted by senders. Receivers must drop connections presenting unexpected values here.

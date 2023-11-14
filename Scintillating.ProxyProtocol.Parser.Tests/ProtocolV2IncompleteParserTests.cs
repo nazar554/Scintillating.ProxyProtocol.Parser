@@ -158,7 +158,7 @@ public class ProtocolV2IncompleteParserTests
         }
     }
 
-    private static IEnumerable<object[]> GetIncompleteChunks()
+    public static IEnumerable<object[]> GetIncompleteChunks()
     {
         yield return new object[] {
             new byte[]?[] {

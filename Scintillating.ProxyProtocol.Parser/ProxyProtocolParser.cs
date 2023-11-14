@@ -24,15 +24,15 @@ public struct ProxyProtocolParser
     private const AddressFamily AF_UNSPEC = AddressFamily.Unspecified;
     private const int TLV_STACKALLOC_THRESHOLD = 1024;
 
-    // sizeof(raw.hdr_v2.sig) + sizeof(ver_cmd) + sizeof(fam) + sizeof(len) = 16
-    internal const int len_v2 = (hdr_v2.sig_len + 2) * sizeof(byte) + sizeof(short);
+    // sizeof(raw.proxy_hdr_v2.sig) + sizeof(ver_cmd) + sizeof(fam) + sizeof(len) = 16
+    internal const int len_v2 = (proxy_hdr_v2.sig_len + 2) * sizeof(byte) + sizeof(short);
 
     // "PROXY \r\n".Length = sizeof("PROXY") + sizeof((byte)' ') + sizeof("\r\n") = 8
     internal const int len_v1 = ParserConstants.PreambleV1Length + ParserConstants.DelimiterV1Length + sizeof(byte);
 
     private byte _proxyAddrLength;
     private int _bytesFilled;
-    private hdr _raw_hdr;
+    private proxy_hdr _raw_hdr;
     private ParserStep _step;
 
     /// <summary>
@@ -103,9 +103,9 @@ public struct ProxyProtocolParser
 
         if (startsWithV2 && remainingBytes >= len_v2)
         {
-            ParserUtility.Assert(len_v2 > hdr_v2.sig_len);
+            ParserUtility.Assert(len_v2 > proxy_hdr_v2.sig_len);
 
-            sequenceReader.Advance(hdr_v2.sig_len);
+            sequenceReader.Advance(proxy_hdr_v2.sig_len);
             return TryConsumeInitialV2(ref sequenceReader, ref examined, ref proxyProtocolHeader);
         }
         if (startsWithV1 && remainingBytes >= len_v1)
@@ -152,7 +152,7 @@ public struct ProxyProtocolParser
         }
         ushort len = _raw_hdr.v2.len = unchecked((ushort)slen);
 
-        var sig_v2 = MemoryMarshal.CreateSpan(ref _raw_hdr.v2.sig[0], hdr_v2.sig_len);
+        var sig_v2 = MemoryMarshal.CreateSpan(ref _raw_hdr.v2.sig[0], proxy_hdr_v2.sig_len);
         ParserConstants.SigV2.CopyTo(sig_v2);
 
         int cmd = ver_cmd & 0x0F;
@@ -194,11 +194,11 @@ public struct ProxyProtocolParser
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static unsafe int SizeOfUnix(ushort len)
     {
-        if (len < sizeof(unix))
+        if (len < sizeof(af_unix))
         {
             ParserThrowHelper.ThrowUnixAddressToShort();
         }
-        return sizeof(unix);
+        return sizeof(af_unix);
     }
 
     private bool TryConsumeLocalV2(ref SequenceReader<byte> sequenceReader, ref ProxyProtocolHeader proxyProtocolHeader)
@@ -274,7 +274,7 @@ public struct ProxyProtocolParser
         int crlfOffset = _bytesFilled;
         ParserUtility.Assert(crlfOffset >= 1, "starting offset is too small");
 
-        bool isComplete = Consume(ref sequenceReader, sizeof(hdr_v1), advancePast: false);
+        bool isComplete = Consume(ref sequenceReader, sizeof(proxy_hdr_v1), advancePast: false);
 
         int bytesFilled = _bytesFilled;
         ParserUtility.Assert(bytesFilled >= 0);
@@ -350,7 +350,7 @@ public struct ProxyProtocolParser
                 _raw_hdr.v2.len = BinaryPrimitives.ReverseEndianness(len);
             }
 
-            if (totalLength <= sizeof(hdr))
+            if (totalLength <= sizeof(proxy_hdr))
             {
                 proxyProtocolHeader = ConsumeTypeLengthValueFromSpanV2(
                     tlvLength,
@@ -662,12 +662,12 @@ public struct ProxyProtocolParser
 
     private unsafe (EndPoint? source, EndPoint? destination) MapUnix()
     {
-        ref hdr_v2 v2 = ref _raw_hdr.v2;
-        ref unix unix = ref v2.proxy_addr.unix;
+        ref proxy_hdr_v2 v2 = ref _raw_hdr.v2;
+        ref af_unix unix = ref v2.proxy_addr.unix;
 
-        var src_addr = MemoryMarshal.CreateReadOnlySpan(ref unix.src_addr[0], unix.addr_len);
+        var src_addr = MemoryMarshal.CreateReadOnlySpan(ref unix.src_addr[0], af_unix.addr_len);
         var source = ParserUtility.CreateUnixEndPoint(src_addr, nameof(src_addr));
-        var dst_addr = MemoryMarshal.CreateReadOnlySpan(ref unix.dst_addr[0], unix.addr_len);
+        var dst_addr = MemoryMarshal.CreateReadOnlySpan(ref unix.dst_addr[0], af_unix.addr_len);
         var destination = ParserUtility.CreateUnixEndPoint(dst_addr, nameof(dst_addr));
 
         return (source, destination);

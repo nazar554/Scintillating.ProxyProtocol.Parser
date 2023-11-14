@@ -3,7 +3,7 @@
 namespace Scintillating.ProxyProtocol.Parser.raw;
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal unsafe struct hdr_v2
+internal unsafe struct proxy_hdr_v2
 {
     public const int sig_len = 12;
 
