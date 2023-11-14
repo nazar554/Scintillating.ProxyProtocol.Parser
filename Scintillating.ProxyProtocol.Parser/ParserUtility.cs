@@ -32,7 +32,7 @@ internal static class ParserUtility
     public static ProxyProtocolTlvFlags ValidateFlags(ProxyProtocolTlvFlags flags)
     {
         const ProxyProtocolTlvFlags All = ProxyProtocolTlvFlags.PP2_CLIENT_SSL | ProxyProtocolTlvFlags.PP2_CLIENT_CERT_CONN | ProxyProtocolTlvFlags.PP2_CLIENT_CERT_SESS;
-        if ((flags & All) != All)
+        if ((flags | All) != All)
         {
             ParserThrowHelper.ThrowProxyV2InvalidSslFlags((byte)flags);
         }

@@ -45,7 +45,7 @@ public enum ProxyProtocolTlvType : byte
     PP2_SUBTYPE_SSL_VERSION = 0x21,
 
     /// <summary>
-    /// SSL ce (TLV subtype).
+    /// SSL CN (TLV subtype).
     /// </summary>
     PP2_SUBTYPE_SSL_CN = 0x22,
 

@@ -7,7 +7,6 @@ using Xunit;
 
 namespace Scintillating.ProxyProtocol.Parser.Tests;
 
-
 public class ProtocolV2IncompleteParserTests
 {
     private ProxyProtocolParser _parser;
@@ -116,6 +115,9 @@ public class ProtocolV2IncompleteParserTests
                 else
                 {
                     chunksConsumed++;
+
+                    var consumed = sequence.GetOffset(advanceTo.Consumed);
+                    totalConsumed += consumed;
 
                     success.Should().BeTrue("it's the final chunk");
                     proxyProtocolHeader.Should().NotBeNull("it's the final chunk");

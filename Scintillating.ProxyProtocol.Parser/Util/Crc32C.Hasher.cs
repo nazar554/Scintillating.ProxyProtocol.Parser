@@ -29,7 +29,7 @@ internal sealed partial class Crc32C
         {
             if (length != 0)
             {
-                _crc = ComputeHashIntrinsic(_crc, buffer, length);
+                _crc = ComputeHashDispatch(_crc, buffer, length);
             }
         }
 
@@ -50,7 +50,7 @@ internal sealed partial class Crc32C
             {
                 return crc;
             }
-            return ~GetHashValue(ComputeHashIntrinsic(crc, buffer, length));
+            return ~GetHashValue(ComputeHashDispatch(crc, buffer, length));
         }
 
         public static unsafe uint ComputeHash(ReadOnlySpan<byte> source)
@@ -66,18 +66,18 @@ internal sealed partial class Crc32C
         public static unsafe uint ComputeHash(byte[] array, int ibStart, int cbSize) => ComputeHash(new ReadOnlySpan<byte>(array, ibStart, cbSize));
 
         [ExcludeFromCodeCoverage(Justification = "Intrinsics dispatch is machine dependent.")]
-        private static unsafe uint ComputeHashIntrinsic(uint crc, byte* buffer, nuint length)
+        private static unsafe uint ComputeHashDispatch(uint crc, byte* buffer, nuint length)
         {
             if (Sse42.IsSupported)
             {
-                return ComputeHashSse42(crc, buffer, length);
+                return crc32_sse42.sse42_crc32c(crc, buffer, length);
             }
             if (Crc32.IsSupported)
             {
-                return ComputeHashArmV8(crc, buffer, length);
+                return pg_crc32c_armv8.pg_comp_crc32c_armv8(crc, buffer, length);
             }
 
-            return ComputeHashFallback(crc, buffer, length);
+            return pg_crc32c_sb8.pg_comp_crc32c_sb8(crc, buffer, length);
         }
 
         private static uint ComputeHashImpl(uint crc, ReadOnlySpan<byte> source)
@@ -86,22 +86,10 @@ internal sealed partial class Crc32C
             {
                 fixed (byte* ptr = &MemoryMarshal.GetReference(source))
                 {
-                    return ComputeHashIntrinsic(crc, ptr, (nuint)source.Length);
+                    return ComputeHashDispatch(crc, ptr, (nuint)source.Length);
                 }
             }
         }
-
-        [ExcludeFromCodeCoverage(Justification = "Intrinsics dispatch is machine dependent.")]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe uint ComputeHashSse42(uint crc, byte* buffer, nuint length) => crc32_sse42.sse42_crc32c(crc, buffer, length);
-
-        [ExcludeFromCodeCoverage(Justification = "Intrinsics dispatch is machine dependent.")]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe uint ComputeHashArmV8(uint crc, byte* buffer, nuint length) => pg_crc32c_armv8.pg_comp_crc32c_armv8(crc, buffer, length);
-
-        [ExcludeFromCodeCoverage(Justification = "Intrinsics dispatch is machine dependent.")]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe uint ComputeHashFallback(uint crc, byte* buffer, nuint length) => pg_crc32c_sb8.pg_comp_crc32c_sb8(crc, buffer, length);
 
         [ExcludeFromCodeCoverage(Justification = "Intrinsics dispatch is machine dependent.")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -51,9 +51,12 @@ internal static unsafe class pg_crc32c_sb8
 
     public static unsafe pg_crc32c pg_comp_crc32c_sb8(pg_crc32c crc, uint8* data, nuint len)
     {
-        ReadOnlySpan<uint8> pg_crc32c_table = _pg_crc32c_table_bytes_be;
-        fixed (uint8* ptr = &MemoryMarshal.GetReference(pg_crc32c_table))
+        fixed (uint8* ptr = &MemoryMarshal.GetReference(_pg_crc32c_table_bytes_be))
         {
+            // Alignment of _pg_crc32c_table_bytes_be should be okay (but this code depends on implementation details)
+            // Before RuntimeHelpers.CreateSpan RVA were always aligned to sizeof(DWORD) = 4
+            // Now it's either 8 or 4 which works fine since there is no SIMD
+            // https://github.com/davidwrighton/runtime/blob/5582250d0cab7266cd4d138b06e074f59d096988/src/coreclr/vm/commodule.cpp#L495
             return pg_comp_crc32c_sb8_impl((uint32*)ptr, crc, data, len);
         }
     }

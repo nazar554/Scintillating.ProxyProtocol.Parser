@@ -70,7 +70,6 @@ internal static unsafe class crc32_sse42
         return sum;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void gf2_matrix_square(Span<uint> square, ref uint mat)
     {
         for (int n = 0; n < square.Length; ++n)
@@ -116,21 +115,26 @@ internal static unsafe class crc32_sse42
 
     private static uint[] crc32c_zeros(nuint len)
     {
-        Span<uint> op = stackalloc uint[32];
-        ref uint rop = ref MemoryMarshal.GetReference(op);
-        crc32c_zeros_op(op, len);
-        uint[] zeros = GC.AllocateUninitializedArray<uint>(TABLE_LENGTH, pinned: true);
-        ref uint start = ref MemoryMarshal.GetArrayDataReference(zeros);
-
-        for (uint n = 0; n < TABLE_SIZE; ++n)
+        if (Sse42.IsSupported)
         {
-            Unsafe.Add(ref start, 0 * TABLE_SIZE + n) = gf2_matrix_times(ref rop, n);
-            Unsafe.Add(ref start, 1 * TABLE_SIZE + n) = gf2_matrix_times(ref rop, n << 8);
-            Unsafe.Add(ref start, 2 * TABLE_SIZE + n) = gf2_matrix_times(ref rop, n << 16);
-            Unsafe.Add(ref start, 3 * TABLE_SIZE + n) = gf2_matrix_times(ref rop, n << 24);
+            Span<uint> op = stackalloc uint[32];
+            ref uint rop = ref MemoryMarshal.GetReference(op);
+            crc32c_zeros_op(op, len);
+            uint[] zeros = GC.AllocateUninitializedArray<uint>(TABLE_LENGTH, pinned: true);
+            ref uint start = ref MemoryMarshal.GetArrayDataReference(zeros);
+
+            for (uint n = 0; n < TABLE_SIZE; ++n)
+            {
+                Unsafe.Add(ref start, 0 * TABLE_SIZE + n) = gf2_matrix_times(ref rop, n);
+                Unsafe.Add(ref start, 1 * TABLE_SIZE + n) = gf2_matrix_times(ref rop, n << 8);
+                Unsafe.Add(ref start, 2 * TABLE_SIZE + n) = gf2_matrix_times(ref rop, n << 16);
+                Unsafe.Add(ref start, 3 * TABLE_SIZE + n) = gf2_matrix_times(ref rop, n << 24);
+            }
+
+            return zeros;
         }
 
-        return zeros;
+        return null!;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -143,7 +147,7 @@ internal static unsafe class crc32_sse42
              ^ Unsafe.Add(ref target, 3 * TABLE_SIZE + (crc >> 24));
     }
 
-    public static unsafe uint sse42_crc32c(uint crc, byte* buffer, nuint length)
+    public static uint sse42_crc32c(uint crc, byte* buffer, nuint length)
     {
         if (Sse42.X64.IsSupported)
         {
@@ -154,7 +158,7 @@ internal static unsafe class crc32_sse42
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static unsafe uint sse42_crc32c_x86_64(uint crc, byte* buf, nuint len)
+    private static uint sse42_crc32c_x86_64(uint crc, byte* buf, nuint len)
     {
         const nuint align = 8;
 

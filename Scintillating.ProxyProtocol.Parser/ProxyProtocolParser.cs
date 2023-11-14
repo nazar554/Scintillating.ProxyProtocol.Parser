@@ -47,44 +47,50 @@ public struct ProxyProtocolParser
         out ProxyProtocolAdvanceTo advanceTo,
         [MaybeNullWhen(returnValue: false)] out ProxyProtocolHeader proxyProtocolHeader)
     {
+        proxyProtocolHeader = null!;
+        advanceTo = default;
+
         bool isNotEmpty = !sequence.IsEmpty;
         var sequenceReader = isNotEmpty ? new SequenceReader<byte>(sequence) : default;
 
         ProxyProtocolHeader value = null!;
         SequencePosition? examined = null;
-
-        bool success;
-        ParserStep step = _step;
-        try
+        
+        bool success = _step switch
         {
-            success = step switch
-            {
-                ParserStep.Done => ThrowAlreadyDone(),
-                ParserStep.Invalid => ThrowInvalidProtocol(),
-                ParserStep.Initial => isNotEmpty && TryConsumeInitial(ref sequenceReader, ref examined, ref value),
-                ParserStep.PreambleV1 => isNotEmpty && TryConsumePreambleV1(ref sequenceReader, ref value),
-                ParserStep.AddressFamilyV2 => isNotEmpty && TryConsumeAddressFamilyV2(ref sequenceReader, ref examined, ref value),
-                ParserStep.LocalV2 => isNotEmpty && TryConsumeLocalV2(ref sequenceReader, ref value),
-                ParserStep.TlvV2 => isNotEmpty && TryConsumeTypeLengthValueV2(ref sequenceReader, ref examined, ref value),
-                _ => ThrowUnknownParserStep(step),
-            };
-        }
-        catch
-        {
-            if (step != ParserStep.Done && step != ParserStep.Invalid)
-            {
-                _step = ParserStep.Invalid;
-            }
-            proxyProtocolHeader = null!;
-            advanceTo = default;
-            throw;
-        }
+            > ParserStep.Invalid and < ParserStep.Done => isNotEmpty && TryParseNonEmpty(ref sequenceReader, ref examined, ref value),
+            ParserStep.Done => ThrowAlreadyDone(),
+            ParserStep.Invalid => ThrowInvalidProtocol(),
+            ParserStep unknown => ThrowUnknownParserStep(unknown),
+        };
 
         proxyProtocolHeader = value;
         SequencePosition advanceToConsumed = isNotEmpty ? sequenceReader.Position : sequence.Start;
         SequencePosition advanceToExamined = isNotEmpty ? examined.GetValueOrDefault(advanceToConsumed) : advanceToConsumed;
         advanceTo = new ProxyProtocolAdvanceTo(advanceToConsumed, advanceToExamined);
         return success;
+    }
+
+    private bool TryParseNonEmpty(ref SequenceReader<byte> sequenceReader, ref SequencePosition? examined, ref ProxyProtocolHeader proxyProtocolHeader)
+    {
+        try
+        {
+#pragma warning disable CS8509 // The switch expression does not handle all possible values of its input type (it is not exhaustive).
+            return _step switch
+            {
+                ParserStep.Initial => TryConsumeInitial(ref sequenceReader, ref examined, ref proxyProtocolHeader),
+                ParserStep.PreambleV1 => TryConsumePreambleV1(ref sequenceReader, ref proxyProtocolHeader),
+                ParserStep.AddressFamilyV2 => TryConsumeAddressFamilyV2(ref sequenceReader, ref examined, ref proxyProtocolHeader),
+                ParserStep.LocalV2 => TryConsumeLocalV2(ref sequenceReader, ref proxyProtocolHeader),
+                ParserStep.TlvV2 => TryConsumeTypeLengthValueV2(ref sequenceReader, ref examined, ref proxyProtocolHeader),
+            };
+#pragma warning restore CS8509 // The switch expression does not handle all possible values of its input type (it is not exhaustive).
+        }
+        catch (ProxyProtocolException)
+        {
+            _step = ParserStep.Invalid;
+            throw;
+        }
     }
 
     private unsafe bool TryConsumeInitial(ref SequenceReader<byte> sequenceReader, ref SequencePosition? examined, ref ProxyProtocolHeader proxyProtocolHeader)
@@ -471,7 +477,7 @@ public struct ProxyProtocolParser
 
             >= PP2_SUBTYPE_SSL_VERSION and <= PP2_SUBTYPE_SSL_KEY_ALG => ThrowProxyV2InvalidTlvType(type, "reserved for SSL sub TLV subtypes"),
             >= PP2_TYPE_MIN_FUTURE and <= PP2_TYPE_MAX_FUTURE => ThrowProxyV2InvalidTlvType(type, "reserved for future"),
-            _ => ThrowProxyV2InvalidTlvType(type, "unrecognized type"),
+            _ => new ProxyProtocolTlvUnknown(ptype, value.ToArray())
         };
     }
 
